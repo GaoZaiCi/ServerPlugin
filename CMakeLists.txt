@@ -20,11 +20,11 @@ include_directories(Template)
 link_directories(.)
 
 add_definitions(-D"NDEBUG" -D"TEMPLATE_EXPORTS" -D"WIN32_LEAN_AND_MEAN" -D"_CRT_SECURE_NO_WARNINGS" -D"_WINDOWS"
-        -D"_USRDLL" -D"_AMD64_" -D"NOMINMAX" -D"_WINDLL" -D"_UNICODE" -D"UNICODE")
+        -D"_USRDLL" -D"_AMD64_" -D"NOMINMAX" -D"_WINDLL" -D"_UNICODE" -D"UNICODE" )
 
 add_compile_options(
         /permissive- /GS /GL /W3 /Gy /Zc:wchar_t /Zi /Gm- /sdl /Zc:inline /fp:precise /errorReport:prompt /WX-
-        /Zc:forScope /Gd /Oi /MD /std:c++17 /FC /EHsc /nologo /diagnostics:column
+        /Zc:forScope /Gd /Oi /MD /std:c++17 /FC /EHsc /nologo /diagnostics:column /utf-8
 )
 
 add_link_options(
@@ -37,4 +37,9 @@ add_library(TemplatePlugin SHARED ${SRC_FILES_DIR})
 add_custom_command(TARGET TemplatePlugin PRE_BUILD
         COMMAND cmd /c ${PROJECT_SOURCE_DIR}/prepareLib.cmd ${PROJECT_SOURCE_DIR}
         COMMENT "Preparing Library"
+        )
+
+add_custom_command(TARGET TemplatePlugin POST_BUILD
+        COMMAND cmd /c ${PROJECT_SOURCE_DIR}/copy.cmd ${PROJECT_SOURCE_DIR}
+        COMMENT "Copy DLL"
         )
