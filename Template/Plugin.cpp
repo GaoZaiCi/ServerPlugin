@@ -23,6 +23,8 @@
 #include <MC/ActorUniqueID.hpp>
 #include <MC/SharedAttributes.hpp>
 #include <MC/AttributeInstance.hpp>
+#include <MC/Explosion.hpp>
+#include <MC/DispenserBlock.hpp>
 #include "Version.h"
 #include "PluginCommand.h"
 #include "ScheduleAPI.h"
@@ -52,29 +54,10 @@ void PluginInit() {
 
 }
 
-
-class Explosion {
-public:
-    float x, y, value;
-public:
-    ActorUniqueID &getUniqueID() {
-        return *(ActorUniqueID *) ((uintptr_t) this + 88);
-    }
-};
-
-
 TInstanceHook(void, "?explode@Explosion@@QEAAXXZ",
               Explosion) {
     if (PluginCommand::state) {
-        Actor *actor = Level::getEntity(getUniqueID());
-        auto entities = Level::getAllEntities();
-        for (auto &it: entities) {
-            float dis = actor->getPos().distanceTo(it->getPos());
-            if (it != actor && dis < 7) {
-                it->hurtEntity(20 - dis);
-            }
-        }
-        return;
+        setBreaking(false);
     }
     return original(this);
 }
@@ -111,12 +94,12 @@ TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ",
                 Actor *entity = CommandUtils::spawnEntityAt(player->getRegion(), pos, "minecraft:xp_bottle", uniqueId, nullptr);
                 entity->lerpMotion(Vec3(0, 3, 0));
             }
-            if (luck / 2 < 2) {
+            if (luck / 2 < 1) {
                 Vec3 pos = getPos();
                 ActorUniqueID uniqueId = getLevel().getNewUniqueID();
                 Actor *entity = CommandUtils::spawnEntityAt(player->getRegion(), pos, "minecraft:creeper", uniqueId, nullptr);
                 entity->setTarget(player);
-                entity->setNameTag("§eBoss");
+                entity->setNameTag("§eBoss§r");
                 AttributeInstance const &instance = entity->getAttribute(SharedAttributes::HEALTH);
                 auto &p = (AttributeInstance &) instance;
                 p.setMaxValue(50);

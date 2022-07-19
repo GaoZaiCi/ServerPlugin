@@ -7,7 +7,7 @@
 bool PluginCommand::state = true;
 
 void PluginCommand::setup(CommandRegistry *registry) {
-    registry->registerCommand("explode", "防爆保护", CommandPermissionLevel::GameMasters, {CommandFlagValue::None}, {(CommandFlagValue) 0x80});
+    registry->registerCommand("explode", "防爆保护(防止爆炸时破坏地形)", CommandPermissionLevel::GameMasters, {CommandFlagValue::None}, {(CommandFlagValue) 0x80});
     registry->registerOverload<PluginCommand>("explode");
 }
 
