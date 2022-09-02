@@ -35,12 +35,17 @@
 #include "PluginCommand.h"
 #include "ScheduleAPI.h"
 #include "Global.h"
+#include "GlobalServiceAPI.h"
 #include "MC/VanillaItemNames.hpp"
 #include "MC/EnchantUtils.hpp"
 #include "MC/ListTag.hpp"
+#include "MC/Dimension.hpp"
 #include <LLAPI.h>
 #include <ServerAPI.h>
 #include "VftableHook.h"
+#include "MC/Brightness.hpp"
+#include "MC/ServerLevel.hpp"
+#include "MC/ComponentItem.hpp"
 
 using namespace std;
 
@@ -98,6 +103,9 @@ class HashedString const &EntityCanonicalName(enum ActorType);
 extern enum ActorType EntityTypeFromString(std::string const &);
 
 uintptr_t imageBaseAddr;
+map<int, unordered_set<int>> blood_moon_mapping;
+
+
 
 void PluginInit() {
     HMODULE handle = GetModuleHandle(nullptr);
@@ -156,6 +164,21 @@ void PluginInit() {
         Scoreboard::addScore(event.mPlayer, PLAYER_ATTACK_COUNT, 1);
         return true;
     });
+    Event::PlayerCmdEvent::subscribe_ref([](auto &event){
+        logger.info("cmd {}",event.mCommand);
+        if (event.mCommand == "me 血月启动"){
+            Level::runcmd("/time set night");
+            int time = event.mPlayer->getLevel().getTime();
+            int day = 0;
+            if (time > 24000) {
+                day = time / 24000;
+            }
+            blood_moon_mapping[day] = {13000};
+            Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
+            logger.info("血月升起");
+        }
+        return true;
+    });
 }
 
 TInstanceHook(Mob*, "?spawnMob@Spawner@@QEAAPEAVMob@@AEAVBlockSource@@AEBUActorDefinitionIdentifier@@PEAVActor@@AEBVVec3@@_N44@Z", Spawner, BlockSource &source, ActorDefinitionIdentifier const &identifier, Actor *entity, Vec3 const &pos, bool b1, bool b2, bool b3) {
@@ -172,14 +195,14 @@ TInstanceHook(Mob*, "?spawnMob@Spawner@@QEAAPEAVMob@@AEAVBlockSource@@AEBUActorD
                     //设置生物攻击目标
                     mob->setTarget(player);
                     if (player->distanceTo(*mob) < 50.0f) {
-                        auto const &instance = entity->getAttribute(SharedAttributes::HEALTH);
+                        auto const &instance = mob->getAttribute(SharedAttributes::HEALTH);
                         auto &p = (AttributeInstance &) instance;
                         p.setMaxValue(40);
                         p.setCurrentValue(40);
                     }
                 }
             }
-        } else if (name == "minecraft:zombie" || name == "minecraft:zombie_villager"|| name == "minecraft:husk") {
+        } else if (name == "minecraft:zombie" || name == "minecraft:zombie_villager" || name == "minecraft:husk") {
             if (mob->getRandom().nextInt(0, 100) > 60) {
                 if (mob->getRandom().nextBoolean()) {
                     mob->setNameTag("Grumm");
@@ -227,13 +250,13 @@ TInstanceHook(Mob*, "?spawnMob@Spawner@@QEAAPEAVMob@@AEAVBlockSource@@AEBUActorD
                     }
                 } else {
                     mob->setNameTag("Dinnerbone");
-                    if (mob->getRandom().nextInt(0,100) > 70 ){
-                        mob->setArmor((ArmorSlot)0,ItemStack(VanillaItemNames::DiamondHelmet.getString(),1,0, nullptr));
-                        mob->setArmor((ArmorSlot)1,ItemStack(VanillaItemNames::DiamondChestplate.getString(),1,0, nullptr));
-                        mob->setArmor((ArmorSlot)2,ItemStack(VanillaItemNames::DiamondLeggings.getString(),1,0, nullptr));
-                        mob->setArmor((ArmorSlot)3,ItemStack(VanillaItemNames::DiamondBoots.getString(),1,0, nullptr));
-                        if (mob->getRandom().nextBoolean()){
-                            auto const &instance = entity->getAttribute(SharedAttributes::HEALTH);
+                    if (mob->getRandom().nextInt(0, 100) > 70) {
+                        mob->setArmor((ArmorSlot) 0, ItemStack(VanillaItemNames::DiamondHelmet.getString(), 1, 0, nullptr));
+                        mob->setArmor((ArmorSlot) 1, ItemStack(VanillaItemNames::DiamondChestplate.getString(), 1, 0, nullptr));
+                        mob->setArmor((ArmorSlot) 2, ItemStack(VanillaItemNames::DiamondLeggings.getString(), 1, 0, nullptr));
+                        mob->setArmor((ArmorSlot) 3, ItemStack(VanillaItemNames::DiamondBoots.getString(), 1, 0, nullptr));
+                        if (mob->getRandom().nextBoolean()) {
+                            auto const &instance = mob->getAttribute(SharedAttributes::HEALTH);
                             auto &p = (AttributeInstance &) instance;
                             p.setMaxValue(50);
                             p.setCurrentValue(50);
@@ -320,13 +343,175 @@ TInstanceHook(Mob*, "?spawnMob@Spawner@@QEAAPEAVMob@@AEAVBlockSource@@AEBUActorD
                 mob->setNameTag("jeb_");
             }
         }
+        Level *level = dAccess<Level *, 0>(this);
+        int time = level->getTime();
+        int day = 0;
+        if (time > 24000) {
+            day = time / 24000;
+        }
+        auto it = blood_moon_mapping.find(day);
+        if (it != blood_moon_mapping.end()) {
+            if (it->second.find(23000) == it->second.end()) {
+                try {
+                    {
+                        auto const &instance = mob->getAttribute(SharedAttributes::HEALTH);
+                        auto &p = (AttributeInstance &) instance;
+                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 5);
+                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 5);
+                    }
+                    {
+                        auto const &instance = mob->getAttribute(SharedAttributes::MOVEMENT_SPEED);
+                        auto &p = (AttributeInstance &) instance;
+                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
+                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
+                    }
+                    {
+                        auto const &instance = mob->getAttribute(SharedAttributes::LAVA_MOVEMENT_SPEED);
+                        auto &p = (AttributeInstance &) instance;
+                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
+                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
+                    }
+                    {
+                        auto const &instance = mob->getAttribute(SharedAttributes::UNDERWATER_MOVEMENT_SPEED);
+                        auto &p = (AttributeInstance &) instance;
+                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
+                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
+                    }
+                    for (int i = 0, max = mob->getRandom().nextInt(2, 5); i < max; ++i) {
+                        ActorUniqueID uniqueId = level->getNewUniqueID();
+                        Actor *actor = CommandUtils::spawnEntityAt(mob->getRegion(), pos, identifier.getCanonicalName(), uniqueId, nullptr);
+                        actor->addTag("BloodMoon");
+                        {
+                            auto const &instance = actor->getAttribute(SharedAttributes::HEALTH);
+                            auto &p = (AttributeInstance &) instance;
+                            p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 2);
+                            p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 2);
+                        }
+                        {
+                            auto const &instance = actor->getAttribute(SharedAttributes::MOVEMENT_SPEED);
+                            auto &p = (AttributeInstance &) instance;
+                            p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
+                            p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
+                        }
+                        {
+                            auto const &instance = actor->getAttribute(SharedAttributes::LAVA_MOVEMENT_SPEED);
+                            auto &p = (AttributeInstance &) instance;
+                            p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
+                            p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
+                        }
+                        {
+                            auto const &instance = actor->getAttribute(SharedAttributes::UNDERWATER_MOVEMENT_SPEED);
+                            auto &p = (AttributeInstance &) instance;
+                            p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
+                            p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
+                        }
+                    }
+                    mob->addTag("BloodMoon");
+                } catch (exception &e) {
+                    logger.error("发生异常", e.what());
+                }
+            }
+        }
     }
     return mob;
 }
 
+TInstanceHook(void,"?tick@ServerLevel@@UEAAXXZ",ServerLevel){
+    int time = getTime();
+    int day = 0;
+    if (time > 24000) {
+        day = time / 24000;
+        time = time - (day * 24000);
+    }
+    switch (time) {
+        case 13000: {
+            if (blood_moon_mapping.find(day) == blood_moon_mapping.end()) {
+                if (blood_moon_mapping.empty() || (!blood_moon_mapping.empty() && day - blood_moon_mapping.rbegin()->first >= 7)){
+                    if (getRandom().nextInt(0, 100) > 50) {
+                        blood_moon_mapping[day] = {13000};
+                        Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
+                        logger.info("血月升起");
+                    }
+                }
+            }
+            break;
+        }
+        case 18000: {
+            auto it = blood_moon_mapping.find(day);
+            if (it != blood_moon_mapping.end()) {
+                if (it->second.find(18000) == it->second.end()) {
+                    it->second.insert(18000);
+                    Level::broadcastText("§c血月已到达中期！", TextType::SYSTEM);
+                }
+            }
+            break;
+        }
+        case 23000: {
+            auto it = blood_moon_mapping.find(day);
+            if (it != blood_moon_mapping.end()) {
+                if (it->second.find(23000) == it->second.end()) {
+                    it->second.insert(23000);
+                    Level::broadcastText("§e血月结束了！", TextType::SYSTEM);
+                    logger.info("血月结束");
+                    for (auto &p : Level::getAllPlayers()){
+                        p->sendBossEventPacket(BossEvent::Hide, string(), 0, BossEventColour::Red);
+                    }
+                    Schedule::delay([]() {
+                        for (auto &it: Level::getAllEntities()) {
+                            if (it->hasTag("BloodMoon")) {
+                                it->remove();
+                            }
+                        }
+                    }, 20 * 5);
+
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+    if (time > 23000 || time < 13000) {
+        auto it = blood_moon_mapping.find(day);
+        if (it != blood_moon_mapping.end()) {
+            if (it->second.size() < 3) {
+                it->second.insert(18000);
+                it->second.insert(23000);
+                Level::broadcastText("§e血月结束了！", TextType::SYSTEM);
+                logger.info("血月结束");
+                for (auto &p : Level::getAllPlayers()){
+                    p->sendBossEventPacket(BossEvent::Hide, string(), 0, BossEventColour::Red);
+                }
+                Schedule::delay([]() {
+                    for (auto &it: Level::getAllEntities()) {
+                        if (it->hasTag("BloodMoon")) {
+                            it->remove();
+                        }
+                    }
+                }, 20 * 5);
+            }
+        }
+    } else {
+        auto it = blood_moon_mapping.find(day);
+        if (it != blood_moon_mapping.end() && it->second.size() < 3) {
+            float value = (float)(time - ((24000 - 13000) + (24000 - 23000)) - 1000) / 10000;
+            for (auto &p : Level::getAllPlayers()){
+                p->sendBossEventPacket(BossEvent::Show, "§c血月", value , BossEventColour::Red);
+            }
+        }
+    }
+    return original(this);
+}
+
+
+TInstanceHook(void, "?tick@Spawner@@QEAAXAEAVBlockSource@@AEBVLevelChunk@@@Z", Spawner, BlockSource &source, LevelChunk const &chunk) {
+    //Level *level = dAccess<Level *, 0>(this);
+    return original(this, source, chunk);
+}
+
 TInstanceHook(void, "?releaseUsingItem@GameMode@@UEAAXXZ", GameMode) {
     ItemStack const &itemStack = getPlayer()->getSelectedItem();
-    if (!itemStack.isNull() && itemStack.getItem()->isFood()) {
+    if (!itemStack.isNull() && itemStack.getItem()->isFood() && (getPlayer()->isHungry() || getPlayer()->forceAllowEating())) {
         Scoreboard::addScore(getPlayer(), PLAYER_EAT_COUNT, 1);
         /*CompoundTag const *tag = itemStack.getUserData();
         if (tag && tag->contains("BossItem")) {
@@ -428,4 +613,16 @@ TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
         }
     }
     return hooked;
+}
+
+#include "MC/Common.hpp"
+
+TInstanceHook(bool, "?disconnectClient@ServerNetworkHandler@@QEAAXAEBVNetworkIdentifier@@W4SubClientId@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z", ServerNetworkHandler, NetworkIdentifier const &identifier, SubClientId id, std::string const &str, bool b) {
+    if (str == "disconnectionScreen.outdatedClient") {
+        return original(this, identifier, id, "§c您需要更新游戏版本到 " + Common::getGameVersionString() + "才能游玩本服务器", b);
+    }
+    if (str == "disconnectionScreen.outdatedServer") {
+        return original(this, identifier, id, "§c您的游戏版本高于服务器支持的版本，请降级到 " + Common::getGameVersionString() + "再尝试游玩本服务器", b);
+    }
+    return original(this, identifier, id, str, b);
 }
