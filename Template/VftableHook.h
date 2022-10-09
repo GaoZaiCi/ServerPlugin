@@ -7,6 +7,8 @@
 
 
 //https://www.cnblogs.com/Chary/p/15633846.html
+#include <memoryapi.h>
+
 #define EXE_32_ADDRESS 0x400000
 #define EXE_64_ADDRESS 0x140000000
 #define DLL_32_ADDRESS 0x10000000
