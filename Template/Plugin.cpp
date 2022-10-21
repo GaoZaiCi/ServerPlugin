@@ -20,16 +20,16 @@
 #include <MC/HashedString.hpp>
 #include <MC/ActorDefinitionIdentifier.hpp>
 #include <MC/CommandUtils.hpp>
-#include <MC/ActorUniqueID.hpp>
+#include <mc/ActorUniqueID.hpp>
 #include <MC/SharedAttributes.hpp>
 #include <MC/AttributeInstance.hpp>
 #include <MC/Explosion.hpp>
 #include <MC/DispenserBlock.hpp>
-#include <MC/ActorDamageSource.hpp>
+#include <mc/ActorDamageSource.hpp>
 #include <MC/ServerPlayer.hpp>
 #include <MC/Container.hpp>
 #include <MC/Scoreboard.hpp>
-#include <MC/MobEffectInstance.hpp>
+#include <mc/MobEffectInstance.hpp>
 #include <MC/ActorFactory.hpp>
 #include "Version.h"
 #include "PluginCommand.h"
@@ -550,14 +550,14 @@ TInstanceHook(void, "?explode@Explosion@@QEAAXXZ", Explosion) {
 
 TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
     bool hooked = original(this);
-    int tick = dAccess<int, 1816>(this);
+    int tick = dAccess<int, 1608>(this);
     if (hooked && tick == 0) {
         Actor *actor = getOwner();
         if (actor && actor->isPlayer()) {
             auto player = (Player *) actor;
             player->sendText("自动钓鱼成功", TextType::JUKEBOX_POPUP);
             ItemStack itemStack = player->getSelectedItem();
-            auto &mode = dAccess<unique_ptr<GameMode>, 5928>(player);
+            auto &mode = dAccess<unique_ptr<GameMode>, 5720>(player);
             mode->baseUseItem(itemStack);
             player->refreshInventory();
             Schedule::delay([player, &mode]() {
@@ -615,7 +615,7 @@ TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
     return hooked;
 }
 
-#include "MC/Common.hpp"
+#include "mc/Common.hpp"
 
 TInstanceHook(bool, "?disconnectClient@ServerNetworkHandler@@QEAAXAEBVNetworkIdentifier@@W4SubClientId@@AEBV?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@_N@Z", ServerNetworkHandler, NetworkIdentifier const &identifier, SubClientId id, std::string const &str, bool b) {
     if (str == "disconnectionScreen.outdatedClient") {
