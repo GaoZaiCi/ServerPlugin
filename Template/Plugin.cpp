@@ -136,7 +136,6 @@ void PluginInit() {
             Scoreboard::addScore(player, KILL_MOB_COUNT, 1);
             if (event.mMob->hasTag("BossCreeper")) {
                 Scoreboard::addScore(player, KILL_BOSS_COUNT, 1);
-                auto &level = event.mMob->getLevel();
                 ItemStack itemStack("minecraft:golden_apple", 1, 0, nullptr);
                 itemStack.setCustomName("§6奖励物品");
                 itemStack.setCustomLore({"击败Boss奖励物品"});
@@ -509,6 +508,7 @@ TInstanceHook(void, "?tick@Spawner@@QEAAXAEAVBlockSource@@AEBVLevelChunk@@@Z", S
     return original(this, source, chunk);
 }
 
+
 TInstanceHook(void, "?releaseUsingItem@GameMode@@UEAAXXZ", GameMode) {
     ItemStack const &itemStack = getPlayer()->getSelectedItem();
     if (!itemStack.isNull() && itemStack.getItem()->isFood() && (getPlayer()->isHungry() || getPlayer()->forceAllowEating())) {
@@ -550,7 +550,7 @@ TInstanceHook(void, "?explode@Explosion@@QEAAXXZ", Explosion) {
 
 TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
     bool hooked = original(this);
-    int tick = dAccess<int, 1608>(this);
+    int tick = dAccess<int, 1504>(this);
     if (hooked && tick == 0) {
         Actor *actor = getOwner();
         if (actor && actor->isPlayer()) {
