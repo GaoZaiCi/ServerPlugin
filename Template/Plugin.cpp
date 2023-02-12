@@ -424,6 +424,9 @@ TInstanceHook(void,"?tick@ServerLevel@@UEAAXXZ",ServerLevel){
     }
     switch (time) {
         case 13000: {
+            if (getPlayerList().empty()){
+                return;
+            }
             if (blood_moon_mapping.find(day) == blood_moon_mapping.end()) {
                 if (blood_moon_mapping.empty() || (!blood_moon_mapping.empty() && day - blood_moon_mapping.rbegin()->first >= 7)){
                     if (getRandom().nextInt(0, 100) > 50) {
@@ -550,14 +553,14 @@ TInstanceHook(void, "?explode@Explosion@@QEAAXXZ", Explosion) {
 
 TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
     bool hooked = original(this);
-    int tick = dAccess<int, 1504>(this);
+    int tick = dAccess<int, 1192>(this);
     if (hooked && tick == 0) {
         Actor *actor = getOwner();
         if (actor && actor->isPlayer()) {
             auto player = (Player *) actor;
             player->sendText("自动钓鱼成功", TextType::JUKEBOX_POPUP);
             ItemStack itemStack = player->getSelectedItem();
-            auto &mode = dAccess<unique_ptr<GameMode>, 5720>(player);
+            auto &mode = dAccess<unique_ptr<GameMode>, 4280>(player);
             mode->baseUseItem(itemStack);
             player->refreshInventory();
             Schedule::delay([player, &mode]() {
