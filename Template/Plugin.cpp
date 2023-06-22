@@ -103,8 +103,7 @@ class HashedString const &EntityCanonicalName(enum ActorType);
 extern enum ActorType EntityTypeFromString(std::string const &);
 
 uintptr_t imageBaseAddr;
-map<int, unordered_set<int>> blood_moon_mapping;
-
+map<int, unordered_set<int>> b;
 
 
 void PluginInit() {
@@ -163,16 +162,16 @@ void PluginInit() {
         Scoreboard::addScore(event.mPlayer, PLAYER_ATTACK_COUNT, 1);
         return true;
     });
-    Event::PlayerCmdEvent::subscribe_ref([](auto &event){
-        logger.info("cmd {}",event.mCommand);
-        if (event.mCommand == "me 血月启动"){
+    Event::PlayerCmdEvent::subscribe_ref([](auto &event) {
+        logger.info("cmd {}", event.mCommand);
+        if (event.mCommand == "me 血月启动") {
             Level::runcmd("/time set night");
             int time = event.mPlayer->getLevel().getTime();
             int day = 0;
             if (time > 24000) {
                 day = time / 24000;
             }
-            blood_moon_mapping[day] = {13000};
+            b[day] = {13000};
             Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
             logger.info("血月升起");
         }
@@ -348,8 +347,8 @@ TInstanceHook(Mob*, "?spawnMob@Spawner@@QEAAPEAVMob@@AEAVBlockSource@@AEBUActorD
         if (time > 24000) {
             day = time / 24000;
         }
-        auto it = blood_moon_mapping.find(day);
-        if (it != blood_moon_mapping.end()) {
+        auto it = b.find(day);
+        if (it != b.end()) {
             if (it->second.find(23000) == it->second.end()) {
                 try {
                     {
@@ -415,91 +414,49 @@ TInstanceHook(Mob*, "?spawnMob@Spawner@@QEAAPEAVMob@@AEAVBlockSource@@AEBUActorD
     return mob;
 }
 
-TInstanceHook(void,"?tick@ServerLevel@@UEAAXXZ",ServerLevel){
-    int time = getTime();
-    int day = 0;
-    if (time > 24000) {
-        day = time / 24000;
-        time = time - (day * 24000);
-    }
-    switch (time) {
-        case 13000: {
-            if (getPlayerList().empty()){
-                return;
+TInstanceHook(void, "?_subTick@ServerLevel@@MEAAXXZ", ServerLevel) {
+    int t = getTime(), d = 0;
+    if (t > 24000)d = t / 24000, t -= d * 24000;
+    if (t == 13000 && (!getPlayerList().empty()) && b.find(d) == b.end()) {
+        if (b.empty() || d - b.rbegin()->first >= 7) {
+            if (getRandom().nextInt(0, 100) > 50) {
+                b[d] = {13000};
+                Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
+                logger.info("血月升起");
             }
-            if (blood_moon_mapping.find(day) == blood_moon_mapping.end()) {
-                if (blood_moon_mapping.empty() || (!blood_moon_mapping.empty() && day - blood_moon_mapping.rbegin()->first >= 7)){
-                    if (getRandom().nextInt(0, 100) > 50) {
-                        blood_moon_mapping[day] = {13000};
-                        Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
-                        logger.info("血月升起");
-                    }
-                }
-            }
-            break;
         }
-        case 18000: {
-            auto it = blood_moon_mapping.find(day);
-            if (it != blood_moon_mapping.end()) {
-                if (it->second.find(18000) == it->second.end()) {
-                    it->second.insert(18000);
-                    Level::broadcastText("§c血月已到达中期！", TextType::SYSTEM);
-                }
-            }
-            break;
+    } else if (t == 18000) {
+        auto it = b.find(d);
+        if (it != b.end() && it->second.insert(18000).second) {
+            Level::broadcastText("§c血月已到达中期！", TextType::SYSTEM);
         }
-        case 23000: {
-            auto it = blood_moon_mapping.find(day);
-            if (it != blood_moon_mapping.end()) {
-                if (it->second.find(23000) == it->second.end()) {
-                    it->second.insert(23000);
-                    Level::broadcastText("§e血月结束了！", TextType::SYSTEM);
-                    logger.info("血月结束");
-                    for (auto &p : Level::getAllPlayers()){
-                        p->sendBossEventPacket(BossEvent::Hide, string(), 0, BossEventColour::Red);
-                    }
-                    Schedule::delay([]() {
-                        for (auto &it: Level::getAllEntities()) {
-                            if (it->hasTag("BloodMoon")) {
-                                it->remove();
-                            }
-                        }
-                    }, 20 * 5);
-
-                }
-            }
-            break;
+    } else if (t == 23000) {
+        auto it = b.find(d);
+        if (it != b.end() && it->second.insert(23000).second) {
+            Level::broadcastText("§e血月结束了！", TextType::SYSTEM);
+            logger.info("血月结束");
+            for (auto &p: Level::getAllPlayers())p->sendBossEventPacket(BossEvent::Hide, string(), 0, BossEventColour::Red);
+            Schedule::delay([]() {
+                for (auto &it: Level::getAllEntities())if (it->hasTag("BloodMoon"))it->remove();
+            }, 20 * 5);
         }
-        default:
-            break;
-    }
-    if (time > 23000 || time < 13000) {
-        auto it = blood_moon_mapping.find(day);
-        if (it != blood_moon_mapping.end()) {
-            if (it->second.size() < 3) {
-                it->second.insert(18000);
-                it->second.insert(23000);
-                Level::broadcastText("§e血月结束了！", TextType::SYSTEM);
-                logger.info("血月结束");
-                for (auto &p : Level::getAllPlayers()){
-                    p->sendBossEventPacket(BossEvent::Hide, string(), 0, BossEventColour::Red);
-                }
-                Schedule::delay([]() {
-                    for (auto &it: Level::getAllEntities()) {
-                        if (it->hasTag("BloodMoon")) {
-                            it->remove();
-                        }
-                    }
-                }, 20 * 5);
-            }
+    } else if (t < 13000 || t > 23000) {
+        auto it = b.find(d);
+        if (it != b.end() && it->second.size() < 3) {
+            it->second.insert(18000);
+            it->second.insert(23000);
+            Level::broadcastText("§e血月结束了！", TextType::SYSTEM);
+            logger.info("血月结束");
+            for (auto &p: Level::getAllPlayers())p->sendBossEventPacket(BossEvent::Hide, string(), 0, BossEventColour::Red);
+            Schedule::delay([]() {
+                for (auto &it: Level::getAllEntities())if (it->hasTag("BloodMoon"))it->remove();
+            }, 20 * 5);
         }
     } else {
-        auto it = blood_moon_mapping.find(day);
-        if (it != blood_moon_mapping.end() && it->second.size() < 3) {
-            float value = (float)(time - ((24000 - 13000) + (24000 - 23000)) - 1000) / 10000;
-            for (auto &p : Level::getAllPlayers()){
-                p->sendBossEventPacket(BossEvent::Show, "§c血月", value , BossEventColour::Red);
-            }
+        auto it = b.find(d);
+        if (it != b.end() && it->second.size() < 3) {
+            float v = (float) (t - ((24000 - 13000) + (24000 - 23000)) - 1000) / 10000;
+            for (auto &p: Level::getAllPlayers())p->sendBossEventPacket(BossEvent::Show, "§c血月", v, BossEventColour::Red);
         }
     }
     return original(this);
@@ -553,14 +510,15 @@ TInstanceHook(void, "?explode@Explosion@@QEAAXXZ", Explosion) {
 
 TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
     bool hooked = original(this);
-    int tick = dAccess<int, 1192>(this);
+    int tick = dAccess<int, 1256>(this);
+    logger.info("tick {}",tick);
     if (hooked && tick == 0) {
         Actor *actor = getOwner();
         if (actor && actor->isPlayer()) {
             auto player = (Player *) actor;
             player->sendText("自动钓鱼成功", TextType::JUKEBOX_POPUP);
             ItemStack itemStack = player->getSelectedItem();
-            auto &mode = dAccess<unique_ptr<GameMode>, 4280>(player);
+            auto &mode = dAccess<unique_ptr<GameMode>, 3832>(player);
             mode->baseUseItem(itemStack);
             player->refreshInventory();
             Schedule::delay([player, &mode]() {

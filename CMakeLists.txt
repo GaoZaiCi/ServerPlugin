@@ -43,6 +43,6 @@ add_custom_command(TARGET TemplatePlugin PRE_BUILD
         )
 
 add_custom_command(TARGET TemplatePlugin POST_BUILD
-        COMMAND cmd /c ${PROJECT_SOURCE_DIR}/copy.cmd ${PROJECT_SOURCE_DIR}
+        COMMAND cmd /c ${PROJECT_SOURCE_DIR}/copy.cmd
         COMMENT "Copy DLL"
         )
