@@ -511,7 +511,6 @@ TInstanceHook(void, "?explode@Explosion@@QEAAXXZ", Explosion) {
 TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
     bool hooked = original(this);
     int tick = dAccess<int, 1256>(this);
-    logger.info("tick {}",tick);
     if (hooked && tick == 0) {
         Actor *actor = getOwner();
         if (actor && actor->isPlayer()) {
