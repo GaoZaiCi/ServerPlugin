@@ -569,7 +569,7 @@ TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
                 _pullCloser(*entity, 0.2f);
             }
         } else {
-            logger.error("没有找到钓鱼的玩家 {}", getUniqueID());
+            logger.error("没有找到钓鱼的玩家 {}", getOrCreateUniqueID());
         }
     }
     return hooked;
