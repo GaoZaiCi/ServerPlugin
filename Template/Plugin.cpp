@@ -77,12 +77,26 @@ uintptr_t imageBaseAddr;
 
 bool BloodMoon;
 
+#define CHECK_SCORE(name) \
+try {\
+Scoreboard::getScore(#name, event.mPlayer);\
+} catch (...) {\
+Scoreboard::setScore(#name, event.mPlayer, 0);\
+}\
+
 void PluginInit() {
     HMODULE handle = GetModuleHandle(nullptr);
     logger.info("插件开始加载 BDS句柄:{}", (void *) handle);
     imageBaseAddr = (uintptr_t) handle;
     Event::PlayerJoinEvent::subscribe_ref([](auto &event) {
         event.mPlayer->sendText("§b欢迎玩家§e" + event.mPlayer->getName() + "§b进入游戏！");
+        CHECK_SCORE(KILL_MOB_COUNT)
+        CHECK_SCORE(KILL_BOSS_COUNT)
+        CHECK_SCORE(BLOCK_DESTROY_COUNT)
+        CHECK_SCORE(BUILD_DESTROY_COUNT)
+        CHECK_SCORE(PLAYER_DIE_COUNT)
+        CHECK_SCORE(PLAYER_EAT_COUNT)
+        CHECK_SCORE(PLAYER_ATTACK_COUNT)
         return true;
     });
     Event::RegCmdEvent::subscribe_ref([](auto &event) {
