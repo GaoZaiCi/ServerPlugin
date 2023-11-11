@@ -79,9 +79,10 @@ bool BloodMoon;
 
 #define CHECK_SCORE(name) \
 try {\
-Scoreboard::getScore(#name, event.mPlayer);\
-} catch (...) {\
-Scoreboard::setScore(#name, event.mPlayer, 0);\
+int v = Scoreboard::getScore(name, event.mPlayer); \
+Scoreboard::setScore(name, event.mPlayer, v);\
+} catch (...) {           \
+Scoreboard::setScore(name, event.mPlayer, 0);\
 }\
 
 
@@ -91,13 +92,15 @@ void PluginInit() {
     imageBaseAddr = (uintptr_t) handle;
     Event::PlayerJoinEvent::subscribe_ref([](auto &event) {
         event.mPlayer->sendText("§b欢迎玩家§e" + event.mPlayer->getName() + "§b进入游戏！");
-        CHECK_SCORE(KILL_MOB_COUNT)
-        CHECK_SCORE(KILL_BOSS_COUNT)
-        CHECK_SCORE(BLOCK_DESTROY_COUNT)
-        CHECK_SCORE(BUILD_DESTROY_COUNT)
-        CHECK_SCORE(PLAYER_DIE_COUNT)
-        CHECK_SCORE(PLAYER_EAT_COUNT)
-        CHECK_SCORE(PLAYER_ATTACK_COUNT)
+        Schedule::delay([event] {
+            CHECK_SCORE(KILL_MOB_COUNT)
+            CHECK_SCORE(KILL_BOSS_COUNT)
+            CHECK_SCORE(BLOCK_DESTROY_COUNT)
+            CHECK_SCORE(BUILD_DESTROY_COUNT)
+            CHECK_SCORE(PLAYER_DIE_COUNT)
+            CHECK_SCORE(PLAYER_EAT_COUNT)
+            CHECK_SCORE(PLAYER_ATTACK_COUNT)
+        }, 3);
         return true;
     });
     Event::RegCmdEvent::subscribe_ref([](auto &event) {
@@ -335,6 +338,15 @@ void PluginInit() {
         Scoreboard::newObjective(PLAYER_DIE_COUNT, "玩家死亡数");
         Scoreboard::newObjective(PLAYER_EAT_COUNT, "玩家食用数");
         Scoreboard::newObjective(PLAYER_ATTACK_COUNT, "玩家攻击数");
+        Schedule::delayRepeat([] {
+            static char colors[] = "0123456789abcdefg";
+            static char i = 0;
+            std::string color(1, colors[i++]);
+            Global<ServerNetworkHandler>->allowIncomingConnections("§" + color + "BDS");
+            if (i >= sizeof colors){
+                i = 0;
+            }
+        }, 20, 20 * 6);
         return true;
     });
     Event::MobDieEvent::subscribe_ref([](auto &event) {
