@@ -84,6 +84,7 @@ Scoreboard::getScore(#name, event.mPlayer);\
 Scoreboard::setScore(#name, event.mPlayer, 0);\
 }\
 
+
 void PluginInit() {
     HMODULE handle = GetModuleHandle(nullptr);
     logger.info("插件开始加载 BDS句柄:{}", (void *) handle);
@@ -111,6 +112,7 @@ void PluginInit() {
         //logger.info("MobSpawnedEvent {}", name);
         if (name == "minecraft:creeper") {
             if (mob->getRandom().nextInt(0, 100) > 70) {
+                mob->addTag("SuperMob");
                 mob->setNameTag("闪电苦力怕");
                 mob->addDefinitionGroup("minecraft:charged_creeper");
                 Level &level = source.getLevel();
@@ -129,44 +131,39 @@ void PluginInit() {
         } else if (name == "minecraft:zombie" || name == "minecraft:zombie_villager" || name == "minecraft:husk") {
             if (mob->getRandom().nextInt(0, 100) > 60) {
                 if (mob->getRandom().nextBoolean()) {
+                    mob->addTag("SuperMob");
                     mob->setNameTag("Grumm");
                     if (mob->getRandom().nextInt(0, 100) > 50) {
                         ItemStack itemStack("minecraft:diamond_sword", 1, 0, nullptr);
-                        unique_ptr<Tag> tag = Tag::newTag(Tag::Type::List);
-                        unique_ptr<ListTag> listTag = (unique_ptr<ListTag> &&) tag;
+                        unique_ptr<ListTag> listTag = ListTag::create();
                         {
-                            unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                            unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                             compoundTag->putShort("id", EnchantType::durability);
                             compoundTag->putShort("lvl", MINSHORT);
                             listTag->add(std::move(compoundTag));
                         }
                         {
-                            unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                            unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                             compoundTag->putShort("id", EnchantType::damage_arthropods);
                             compoundTag->putShort("lvl", MINSHORT);
                             listTag->add(std::move(compoundTag));
                         }
                         {
-                            unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                            unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                             compoundTag->putShort("id", EnchantType::damage_undead);
                             compoundTag->putShort("lvl", MINSHORT);
                             listTag->add(std::move(compoundTag));
                         }
                         {
-                            unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                            unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                             compoundTag->putShort("id", EnchantType::mending);
                             compoundTag->putShort("lvl", MINSHORT);
                             listTag->add(std::move(compoundTag));
                         }
-                        if (itemStack.getUserData()) {
+                        if (itemStack.hasUserData()) {
                             itemStack.getUserData()->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
                         } else {
-                            unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                            unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                             compoundTag->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
                             itemStack.setUserData(std::move(compoundTag));
                         }
@@ -190,26 +187,26 @@ void PluginInit() {
             }
         } else if (name == "minecraft:skeleton") {
             if (mob->getRandom().nextInt(0, 100) > 90) {
+                mob->addTag("SuperMob");
                 ItemStack itemStack("minecraft:bow", 1, 0, nullptr);
-                unique_ptr<Tag> tag = Tag::newTag(Tag::Type::List);
-                unique_ptr<ListTag> listTag = (unique_ptr<ListTag> &&) tag;
+                unique_ptr<ListTag> listTag = ListTag::create();
                 {
                     unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->putShort("id", EnchantType::durability);
                     compoundTag->putShort("lvl", MINSHORT);
                     listTag->add(std::move(compoundTag));
                 }
                 {
                     unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->putShort("id", EnchantType::arrowInfinite);
                     compoundTag->putShort("lvl", MINSHORT);
                     listTag->add(std::move(compoundTag));
                 }
                 {
                     unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->putShort("id", EnchantType::damage_undead);
                     compoundTag->putShort("lvl", MINSHORT);
                     listTag->add(std::move(compoundTag));
@@ -218,7 +215,7 @@ void PluginInit() {
                     itemStack.getUserData()->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
                 } else {
                     unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = (unique_ptr<CompoundTag> &&) t;
+                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
                     itemStack.setUserData(std::move(compoundTag));
                 }
@@ -230,6 +227,7 @@ void PluginInit() {
             }
         } else if (name == "minecraft:spider") {
             if (mob->getRandom().nextInt(0, 100) > 70) {
+                mob->addTag("SuperMob");
                 mob->setNameTag("蜘蛛侠");
                 {
                     auto const &instance = mob->getAttribute(SharedAttributes::MOVEMENT_SPEED);
@@ -513,22 +511,63 @@ TInstanceHook(bool, "?_merge@ItemActor@@AEAA_NPEAV1@@Z", ItemActor, ItemActor *a
 }
 
 // FarmBlock::_becomeDirt(BlockSource &,BlockPos const &,Actor *)
-TInstanceHook(void, "?_becomeDirt@FarmBlock@@AEBAXAEAVBlockSource@@AEBVBlockPos@@PEAVActor@@@Z", FarmBlock, BlockSource &source,BlockPos const &pos,Actor *actor) {
+TInstanceHook(void, "?_becomeDirt@FarmBlock@@AEBAXAEAVBlockSource@@AEBVBlockPos@@PEAVActor@@@Z", FarmBlock, BlockSource &source, BlockPos const &pos, Actor *actor) {
 }
 
-//ServerNetworkHandler::handle(NetworkIdentifier const &,RequestNetworkSettingsPacket const &	.	.	B	T	.
-TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVRequestNetworkSettingsPacket@@@Z", ServerNetworkHandler, NetworkIdentifier &identifier, RequestNetworkSettingsPacket &packet) {
-    int client = dAccess<int,48>(&packet);
+//ServerNetworkHandler::handle(NetworkIdentifier const &,RequestNetworkSettingsPacket const &)
+TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVRequestNetworkSettingsPacket@@@Z", ServerNetworkHandler, NetworkIdentifier &identifier, RequestNetworkSettingsPacket & packet) {
+    int client = dAccess<int, 48>(&packet);
     int protocol = SharedConstants::NetworkProtocolVersion;
-    logger.info("RequestNetworkSettingsPacket {} {}",client ,protocol);
+    logger.info("RequestNetworkSettingsPacket {} {}", client, protocol);
     return original(this, identifier, packet);
 }
 
-TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVLoginPacket@@@Z", ServerNetworkHandler, NetworkIdentifier &identifier, LoginPacket &packet) {
-    int *client = (int*)((uintptr_t)&packet+48);
+TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVLoginPacket@@@Z", ServerNetworkHandler, NetworkIdentifier &identifier, LoginPacket & packet) {
+    int *client = (int *) ((uintptr_t) &packet + 48);
     int protocol = SharedConstants::NetworkProtocolVersion;
-    logger.info("LoginPacket {} {}",*client ,protocol);
+    logger.info("LoginPacket {} {}", *client, protocol);
     return original(this, identifier, packet);
+}
+
+#include "mc/NetworkSystem.hpp"
+#include "mc/LevelSettings.hpp"
+#include "mc/LevelSeed64.hpp"
+#include "mc/PlayerListPacket.hpp"
+#include "mc/UpdateAbilitiesPacket.hpp"
+
+TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket@@W4SubClientId@@@Z", NetworkSystem, NetworkIdentifier const &identifier, Packet const &packet, SubClientId id) {
+    /*if (packet.getId() == MinecraftPacketIds::StartGame) {
+        auto ptr = (StartGamePacket * ) & packet;
+        auto *settings = (LevelSettings *) ((uintptr_t) ptr + 48);
+        settings->setRandomSeed(LevelSeed64::fromUnsigned32(0));
+        logger.info("StartGamePacket修改种子为 {}", settings->getSeed().to32BitRandomSeed());
+    }*/
+    /*if (packet.getId() == MinecraftPacketIds::PlayerList) {
+        auto ptr = (PlayerListPacket *) &packet;
+        for (auto &it: ptr->entries) {
+            logger.info("PlayerListEntry {} {}", it.mName, it.mIsHost);
+        }
+    }*/
+    if (packet.getId() == MinecraftPacketIds::UpdateAbilities) {
+        auto ptr = (UpdateAbilitiesPacket *) &packet;
+        auto players = Level::getAllPlayers();
+        for (auto &it: players) {
+            if (identifier == *it->getNetworkIdentifier()) {
+                return original(this, identifier, packet, id);
+            }
+        }
+        ptr->mData.mPlayerPermissionLevel = PlayerPermissionLevel::Member;
+    }
+    return original(this, identifier, packet, id);
+}
+
+
+TInstanceHook(void, "?spawnAtLocation@Actor@@QEAAPEAVItemActor@@AEBVItemStack@@M@Z", Actor, ItemStack const &itemStack, float value) {
+    if (hasTag("BloodMoon") || hasTag("SuperMob")) {
+        auto &item = (ItemStack &) itemStack;
+        item.add(item.getCount());
+    }
+    return original(this, itemStack, value);
 }
 
 /*TInstanceHook(void, "?tick@Spawner@@QEAAXAEAVBlockSource@@AEBVLevelChunk@@@Z", Spawner, BlockSource &source, LevelChunk const &chunk) {
@@ -611,6 +650,7 @@ TInstanceHook(bool, "?_serverHooked@FishingHook@@IEAA_NXZ", FishingHook) {
                 entity->setTarget(player);
                 entity->setNameTag("§eBoss§r");
                 entity->addTag("BossCreeper");
+                entity->addTag("SuperMob");
                 entity->addDefinitionGroup("minecraft:charged_creeper");
                 if (random.nextInt(1, 100) / 2 < 1) {
                     {
