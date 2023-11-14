@@ -17,6 +17,7 @@
 #include "mc/ActorUniqueID.hpp"
 #include "mc/ItemStack.hpp"
 #include "mc/CompoundTag.hpp"
+#include "mc/ListTag.hpp"
 #include "mc/ServerPlayer.hpp"
 #include "mc/Block.hpp"
 #include "mc/HashedString.hpp"
@@ -25,8 +26,8 @@
 #include "mc/BedrockBlockNames.hpp"
 #include "mc/BlockActor.hpp"
 
-using nlohmann::json;
 using namespace Event;
+using namespace Json;
 
 extern PocketInventory mPocketInventory;
 
@@ -35,15 +36,49 @@ PocketInventory::PocketInventory() : logger(__FILE__) {
 
 void PocketInventory::init() {
     PlayerJoinEvent::subscribe_ref([this](auto &event) {
-        ItemStack itemStack("minecraft:enchanted_golden_apple", 1, 0, nullptr);
         unordered_map<uint32_t, ItemStack> items;
-        for (int i = 0; i < 9 * 6; ++i) {
-            items[i] = itemStack;
+
+        ifstream data("plugins/NativeEnhancements/players/" + event.mPlayer->getXuid() + ".dat");
+        if (data.is_open()) {
+            string json;
+            data >> json;
+            //Json::Reader reader;
+            //Json::Value root(Json::nullValue);
+            //reader.parse(json, root, false);
+            data.close();
+
+            auto nbt = CompoundTag::fromBinaryNBT(json,json.size());
+            if (nbt->contains("Inventory")){
+                auto inventory = nbt->getList("Inventory");
+                for (auto tag : inventory->value()){
+                    auto it = tag->asCompoundTag();
+                    int slot = it->getInt("Slot");
+                    auto item = it->getCompound("Item");
+                    ItemStack *itemStack = ItemStack::create(unique_ptr<CompoundTag>(item));
+                    items[slot] = *itemStack;
+                }
+            }
         }
+
         this->playerInventoryMap[event.mPlayer->getActorUniqueId()] = items;
         return true;
     });
     PlayerLeftEvent::subscribe_ref([this](auto &event) {
+        ofstream data("plugins/NativeEnhancements/players/" + event.mPlayer->getXuid() + ".dat");
+        if (data.is_open()){
+            unordered_map<uint32_t, ItemStack> &map = this->playerInventoryMap.at(event.mPlayer->getActorUniqueId());
+            auto nbt = CompoundTag::create();
+            auto inventory = ListTag::create();
+            for(auto &it : map){
+                auto item = CompoundTag::create();
+                item->putInt("Slot",it.first);
+                item->putCompound("Item",it.second.save());
+                inventory->add(std::move(item));
+            }
+            nbt->put("Inventory", std::move(inventory));
+            data << nbt->toBinaryNBT();
+            data.close();
+        }
         this->playerInventoryMap.erase(event.mPlayer->getActorUniqueId());
         return true;
     });
