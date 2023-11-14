@@ -19,10 +19,10 @@
 // The basic descriptions of your plugin
 // Note that the the plugin name CAN ONLY CONTAIN Enlish alphabet, digit, dash(-) and
 // underscore(_). 
-#define PLUGIN_NAME "ServerPlugin"
+#define PLUGIN_NAME "NativeEnhancements"
 // Describe what your plugin does
 // We recommend you start the introduction with a third-person singular verb.
-#define PLUGIN_INTRODUCTION "Prints \"Hello, World!\" in the console."
+#define PLUGIN_INTRODUCTION "BDS Enhancements"
 #define PLUGIN_AUTHOR "Me"
 
 // The version of your plugin. If you do not know how to set it, please refer
@@ -34,7 +34,7 @@
 
 // The stage of your plugin, which can be PLUGIN_VERSION_DEV, PLUGIN_VERSION_BETA
 // and PLUGIN_VERSION_RELEASE
-#define PLUGIN_VERSION_STATUS PLUGIN_VERSION_DEV
+#define PLUGIN_VERSION_STATUS PLUGIN_VERSION_RELEASE
 
 // The target protocol version of your plugin. If you do not know how to set it,
 // please start the latest version of LiteLoaderBDS and get the protocol version.

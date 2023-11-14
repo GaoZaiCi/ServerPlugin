@@ -55,7 +55,24 @@
 #include "mc/FarmBlock.hpp"
 #include "mc/SharedConstants.hpp"
 
+#include "mc/NetworkSystem.hpp"
+#include "mc/LevelSettings.hpp"
+#include "mc/LevelSeed64.hpp"
+#include "mc/PlayerListPacket.hpp"
+#include "mc/UpdateAbilitiesPacket.hpp"
+#include "mc/ContainerOpenPacket.hpp"
+#include "mc/ContainerClosePacket.hpp"
+#include "mc/ItemStackResponsePacket.hpp"
+#include "mc/InventorySlotPacket.hpp"
+#include "mc/NetworkItemStackDescriptor.hpp"
+#include "mc/UpdateBlockPacket.hpp"
+#include "mc/BlockTypeRegistry.hpp"
+#include "mc/VanillaBlockTypeIds.hpp"
+#include "MC/LoopbackPacketSender.hpp"
+#include "MC/ChestBlockActor.hpp"
+
 #include "Utils.h"
+#include "PocketInventory.h"
 
 using namespace std;
 
@@ -85,11 +102,14 @@ Scoreboard::setScore(name, event.mPlayer, v);\
 Scoreboard::setScore(name, event.mPlayer, 0);\
 }\
 
+PocketInventory mPocketInventory;
 
 void PluginInit() {
     HMODULE handle = GetModuleHandle(nullptr);
-    logger.info("插件开始加载 BDS句柄:{}", (void *) handle);
+    logger.info("Build {} {}", __DATE__, __TIME__);
+    logger.info("服务器增强插件开始加载 BDS句柄:{}", (void *) handle);
     imageBaseAddr = (uintptr_t) handle;
+    mPocketInventory.init();
     Event::PlayerJoinEvent::subscribe_ref([](auto &event) {
         event.mPlayer->sendText("§b欢迎玩家§e" + event.mPlayer->getName() + "§b进入游戏！");
         Schedule::delay([event] {
@@ -112,7 +132,6 @@ void PluginInit() {
         BlockSource &source = mob->getRegion();
         ActorDefinitionIdentifier identifier = mob->getActorIdentifier();
         const string &name = identifier.getCanonicalName();
-        //logger.info("MobSpawnedEvent {}", name);
         if (name == "minecraft:creeper") {
             if (mob->getRandom().nextInt(0, 100) > 70) {
                 mob->addTag("SuperMob");
@@ -342,8 +361,8 @@ void PluginInit() {
             static char colors[] = "0123456789abcdefg";
             static char i = 0;
             std::string color(1, colors[i++]);
-            Global<ServerNetworkHandler>->allowIncomingConnections("§" + color + "BDS");
-            if (i >= sizeof colors){
+            ll::setServerMotd("§" + color + "BDS");
+            if (i >= sizeof colors) {
                 i = 0;
             }
         }, 20, 20 * 6);
@@ -458,6 +477,9 @@ TInstanceHook(ItemActor*, "?spawnItem@Spawner@@QEAAPEAVItemActor@@AEAVBlockSourc
                     if (random.nextInt(100) > 70) {
                         Utils::enchant(newItemStack, EnchantType::damage_all, 10, true);
                     }
+                    if (random.nextInt(100) > 70) {
+                        Utils::enchant(newItemStack, EnchantType::lootBonusDigger, 10, true);
+                    }
                     return original(this, source, newItemStack, actor, pos, value);
                 }
             }
@@ -541,34 +563,150 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
     return original(this, identifier, packet);
 }
 
-#include "mc/NetworkSystem.hpp"
-#include "mc/LevelSettings.hpp"
-#include "mc/LevelSeed64.hpp"
-#include "mc/PlayerListPacket.hpp"
-#include "mc/UpdateAbilitiesPacket.hpp"
+
+struct ContainerEnumNameHasher {
+public:
+    std::size_t operator()(ContainerEnumName k) const {
+        return 0x9FFAAC085635BC91 * ((unsigned __int8) k ^ 0xCBF29CE484222325);
+    }
+};
+
+class ItemStackResponseSlotInfo {
+public:
+    uint8_t slot;
+    uint8_t hotbarSlot;
+    uint8_t count;
+    TypedServerNetId<ItemStackNetIdTag, int, 0> itemStackId;
+    std::string customName;
+    int durabilityCorrection;
+public:
+    string toString() {
+        stringstream ss;
+        ss << "slot: " << (int) slot << " hotbarSlot: " << (int) hotbarSlot << " count: " << (int) count;
+        ss << "itemStackId:" << itemStackId.netId << " ";
+        ss << "customName:" << customName << " ";
+        ss << "durabilityCorrection:" << durabilityCorrection;
+        return ss.str();
+    }
+};
+
+class ItemStackResponseContainerInfo {
+public:
+    ContainerEnumName containerId;
+    std::vector<ItemStackResponseSlotInfo> slots;
+public:
+    ItemStackResponseContainerInfo(ContainerEnumName);
+
+    ItemStackResponseContainerInfo(ItemStackResponseContainerInfo &&);
+
+    ItemStackResponseContainerInfo &operator=(ItemStackResponseContainerInfo &&);
+
+public:
+    string toString() {
+        std::unordered_map<ContainerEnumName, std::string, ContainerEnumNameHasher> &map = *(std::unordered_map<ContainerEnumName, std::string, ContainerEnumNameHasher> *) dlsym_real("?ContainerCollectionNameMap@@3V?$unordered_map@W4ContainerEnumName@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@UContainerEnumNameHasher@@U?$equal_to@W4ContainerEnumName@@@3@V?$allocator@U?$pair@$$CBW4ContainerEnumName@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@std@@@3@@std@@A");
+
+        std::stringstream ss;
+        ss << "container:" << map.at(containerId) << endl;
+        ss << "slots:";
+        for (auto &item: slots) {
+            ss << item.toString() << endl;
+        }
+        return ss.str();
+    }
+};
+
+struct ItemStackResponseInfo {
+    enum class Result : bool {
+        OK, ERROR
+    } result;
+    TypedClientNetId<ItemStackRequestIdTag, int, 0> netId;
+    std::vector<ItemStackResponseContainerInfo> responseContainerInfoList;
+
+    ItemStackResponseInfo();
+
+    ItemStackResponseInfo(ItemStackResponseInfo &&);
+
+    ItemStackResponseInfo &operator=(ItemStackResponseInfo &&);
+
+    string toString() {
+        std::stringstream ss;
+        ss << "result:" << (int) result << " ";
+        ss << "netId:" << netId.netId << " ";
+        ss << "list:";
+        for (auto &item: responseContainerInfoList) {
+            ss << item.toString() << endl;
+        }
+        return ss.str();
+    }
+};
 
 TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket@@W4SubClientId@@@Z", NetworkSystem, NetworkIdentifier const &identifier, Packet const &packet, SubClientId id) {
-    /*if (packet.getId() == MinecraftPacketIds::StartGame) {
-        auto ptr = (StartGamePacket * ) & packet;
-        auto *settings = (LevelSettings *) ((uintptr_t) ptr + 48);
-        settings->setRandomSeed(LevelSeed64::fromUnsigned32(0));
-        logger.info("StartGamePacket修改种子为 {}", settings->getSeed().to32BitRandomSeed());
-    }*/
-    /*if (packet.getId() == MinecraftPacketIds::PlayerList) {
+    //logger.info("Sending {}",packet.getName());
+    if (packet.getId() == MinecraftPacketIds::PlayerList) {
         auto ptr = (PlayerListPacket *) &packet;
-        for (auto &it: ptr->entries) {
-            logger.info("PlayerListEntry {} {}", it.mName, it.mIsHost);
+        auto players = Level::getAllPlayers();
+        for (auto &it: players) {
+            if (identifier == *it->getNetworkIdentifier() && it->isOperator()) {
+                return original(this, identifier, packet, id);
+            }
         }
-    }*/
+        for (auto &it: ptr->entries) {
+            it.mIsHost = false;
+        }
+    }
     if (packet.getId() == MinecraftPacketIds::UpdateAbilities) {
         auto ptr = (UpdateAbilitiesPacket *) &packet;
         auto players = Level::getAllPlayers();
         for (auto &it: players) {
-            if (identifier == *it->getNetworkIdentifier()) {
+            if (identifier == *it->getNetworkIdentifier() && it->isOperator()) {
                 return original(this, identifier, packet, id);
             }
         }
         ptr->mData.mPlayerPermissionLevel = PlayerPermissionLevel::Member;
+    }
+    if (packet.getId() == MinecraftPacketIds::ContainerOpen) {
+        auto ptr = (ContainerOpenPacket *) &packet;
+        // ServerPlayer::_nextContainerCounter
+        ContainerID containerId = dAccess<ContainerID, 48>(ptr);
+        ContainerType containerType = dAccess<ContainerType, 49>(ptr);
+        BlockPos pos = dAccess<BlockPos, 52>(ptr);
+        ActorUniqueID uniqueId = dAccess<ActorUniqueID, 64>(ptr);
+        logger.info("ContainerOpen {} {} {} {}", (int) containerId, (int) containerType, pos.toString(), uniqueId);
+        // 2 0 (1619, 110, 50) -1
+    }
+    if (packet.getId() == MinecraftPacketIds::ContainerClose) {
+        auto ptr = (ContainerClosePacket *) &packet;
+        ContainerID containerId = dAccess<ContainerID, 48>(ptr);
+        bool b = dAccess<bool, 49>(ptr);
+        logger.info("ContainerClose {} {}", (int) containerId, b);
+        // 2 false
+    }
+    if (packet.getId() == MinecraftPacketIds::ItemStackResponse) {
+        auto ptr = (ItemStackResponsePacket *) &packet;
+        auto &list = dAccess<vector<ItemStackResponseInfo>, 48>(ptr);
+        logger.info("ItemStackResponse {}", list.size());
+        for (auto &it: list) {
+            logger.info("ItemStackResponse {}", it.toString());
+        }
+    }
+    if (packet.getId() == MinecraftPacketIds::InventorySlot) {
+        auto ptr = (InventorySlotPacket *) &packet;
+        ContainerID containerId = dAccess<ContainerID, 48>(ptr);
+        uint32_t slot = dAccess<uint32_t, 52>(ptr);
+        auto &item = dAccess<NetworkItemStackDescriptor, 56>(ptr);
+
+        BlockPalette &blockPalette = Global<ServerLevel>->getBlockPalette();
+        ItemStack itemStack = ItemStack::fromDescriptor(item, blockPalette, true);
+        logger.info("InventorySlot {} {} {}", (int) containerId, slot, itemStack.toDebugString());
+    }
+    if (packet.getId() == MinecraftPacketIds::UpdateBlock) {
+        auto ptr = (UpdateBlockPacket *) &packet;
+        BlockPos pos = dAccess<BlockPos, 48>(ptr);
+        uint32_t id1 = dAccess<uint32_t, 60>(ptr);
+        uint8_t data = dAccess<uint8_t, 64>(ptr);
+        uint32_t mRuntimeId = dAccess<uint32_t, 68>(ptr);
+
+        logger.info("UpdateBlock {} {} {} {}", pos.toString(), id1, (int) data, mRuntimeId);
     }
     return original(this, identifier, packet, id);
 }

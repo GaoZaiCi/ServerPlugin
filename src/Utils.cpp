@@ -7,6 +7,9 @@
 #include "mc/CompoundTag.hpp"
 #include "mc/Actor.hpp"
 #include "mc/ItemStack.hpp"
+#include "mc/LoopbackPacketSender.hpp"
+#include "mc/Level.hpp"
+#include "mc/Player.hpp"
 
 bool Utils::enchant(ListTag &tag, EnchantType type, short level, bool compulsion) {
     if (!compulsion) {
@@ -52,5 +55,10 @@ void Utils::enchant(ItemStack &itemStack, EnchantType type, short level, bool co
 AttributeInstance &Utils::getEntityAttribute(Actor &actor, const Attribute &attribute) {
     auto &instance = actor.getAttribute(attribute);
     return (AttributeInstance &) instance;
+}
+
+void Utils::sendPacket(Player *player, const std::shared_ptr<Packet> &packet) {
+    auto sender = (LoopbackPacketSender *) Global<Level>->getPacketSender();
+    sender->sendToClient(*player->getNetworkIdentifier(), *packet, (SubClientId) player->getClientSubId());
 }
 

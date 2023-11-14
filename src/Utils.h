@@ -8,6 +8,7 @@
 
 #include "mc/Tag.hpp"
 #include "mc/AttributeInstance.hpp"
+#include "mc/MinecraftPackets.hpp"
 
 enum EnchantType : short {
     arrowDamage = 19,//力量
@@ -62,6 +63,14 @@ public:
     static void enchant(ItemStack &itemStack, EnchantType type, short level, bool compulsion = false);
 
     static AttributeInstance &getEntityAttribute(Actor &actor, const Attribute &);
+
+    template<class T>
+    static std::shared_ptr<T> createPacket(MinecraftPacketIds id) {
+        std::shared_ptr<Packet> packet = MinecraftPackets::createPacket(id);
+        return (std::shared_ptr<T> &&) packet;
+    }
+
+    static void sendPacket(Player *player, const std::shared_ptr<Packet> &packet);
 };
 
 
