@@ -49,6 +49,8 @@ enum EnchantType : short {
     tridentImpaling = 29,//穿刺
 };
 
+class NetworkItemStackDescriptor;
+
 class Utils {
 public:
     template<class T>
@@ -71,6 +73,18 @@ public:
     }
 
     static void sendPacket(Player *player, const std::shared_ptr<Packet> &packet);
+
+    static std::string getContainerEnumName(ContainerEnumName name);
+
+    static void loadItem(NetworkItemStackDescriptor *descriptor,const ItemStack &item);
+
+    struct ContainerEnumNameHasher {
+    public:
+        std::size_t operator()(ContainerEnumName k) const {
+            return 0x9FFAAC085635BC91 * ((unsigned __int8) k ^ 0xCBF29CE484222325);
+        }
+    };
+
 };
 
 

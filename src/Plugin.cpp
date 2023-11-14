@@ -75,6 +75,7 @@
 #include "PocketInventory.h"
 
 using namespace std;
+using namespace Event;
 
 #define KILL_MOB_COUNT "kill_mob_count"
 #define KILL_BOSS_COUNT "kill_boss_count"
@@ -110,7 +111,7 @@ void PluginInit() {
     logger.info("服务器增强插件开始加载 BDS句柄:{}", (void *) handle);
     imageBaseAddr = (uintptr_t) handle;
     mPocketInventory.init();
-    Event::PlayerJoinEvent::subscribe_ref([](auto &event) {
+    PlayerJoinEvent::subscribe_ref([](auto &event) {
         event.mPlayer->sendText("§b欢迎玩家§e" + event.mPlayer->getName() + "§b进入游戏！");
         Schedule::delay([event] {
             CHECK_SCORE(KILL_MOB_COUNT)
@@ -418,7 +419,7 @@ TInstanceHook(void, "?_subTick@ServerLevel@@MEAAXXZ", ServerLevel) {
     int day = LevelUtils::getDay(getTime());
     int time = LevelUtils::getTimeOfDay(getTime());
     if (time == 13000 && !getPlayerList().empty()) {
-        if (day % 30 == 0) {
+        if (day % 7 == 0) {
             if (getRandom().nextInt(0, 100) > 50) {
                 BloodMoon = true;
                 Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
@@ -564,81 +565,6 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
 }
 
 
-struct ContainerEnumNameHasher {
-public:
-    std::size_t operator()(ContainerEnumName k) const {
-        return 0x9FFAAC085635BC91 * ((unsigned __int8) k ^ 0xCBF29CE484222325);
-    }
-};
-
-class ItemStackResponseSlotInfo {
-public:
-    uint8_t slot;
-    uint8_t hotbarSlot;
-    uint8_t count;
-    TypedServerNetId<ItemStackNetIdTag, int, 0> itemStackId;
-    std::string customName;
-    int durabilityCorrection;
-public:
-    string toString() {
-        stringstream ss;
-        ss << "slot: " << (int) slot << " hotbarSlot: " << (int) hotbarSlot << " count: " << (int) count;
-        ss << "itemStackId:" << itemStackId.netId << " ";
-        ss << "customName:" << customName << " ";
-        ss << "durabilityCorrection:" << durabilityCorrection;
-        return ss.str();
-    }
-};
-
-class ItemStackResponseContainerInfo {
-public:
-    ContainerEnumName containerId;
-    std::vector<ItemStackResponseSlotInfo> slots;
-public:
-    ItemStackResponseContainerInfo(ContainerEnumName);
-
-    ItemStackResponseContainerInfo(ItemStackResponseContainerInfo &&);
-
-    ItemStackResponseContainerInfo &operator=(ItemStackResponseContainerInfo &&);
-
-public:
-    string toString() {
-        std::unordered_map<ContainerEnumName, std::string, ContainerEnumNameHasher> &map = *(std::unordered_map<ContainerEnumName, std::string, ContainerEnumNameHasher> *) dlsym_real("?ContainerCollectionNameMap@@3V?$unordered_map@W4ContainerEnumName@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@UContainerEnumNameHasher@@U?$equal_to@W4ContainerEnumName@@@3@V?$allocator@U?$pair@$$CBW4ContainerEnumName@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@std@@@3@@std@@A");
-
-        std::stringstream ss;
-        ss << "container:" << map.at(containerId) << endl;
-        ss << "slots:";
-        for (auto &item: slots) {
-            ss << item.toString() << endl;
-        }
-        return ss.str();
-    }
-};
-
-struct ItemStackResponseInfo {
-    enum class Result : bool {
-        OK, ERROR
-    } result;
-    TypedClientNetId<ItemStackRequestIdTag, int, 0> netId;
-    std::vector<ItemStackResponseContainerInfo> responseContainerInfoList;
-
-    ItemStackResponseInfo();
-
-    ItemStackResponseInfo(ItemStackResponseInfo &&);
-
-    ItemStackResponseInfo &operator=(ItemStackResponseInfo &&);
-
-    string toString() {
-        std::stringstream ss;
-        ss << "result:" << (int) result << " ";
-        ss << "netId:" << netId.netId << " ";
-        ss << "list:";
-        for (auto &item: responseContainerInfoList) {
-            ss << item.toString() << endl;
-        }
-        return ss.str();
-    }
-};
 
 TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket@@W4SubClientId@@@Z", NetworkSystem, NetworkIdentifier const &identifier, Packet const &packet, SubClientId id) {
     //logger.info("Sending {}",packet.getName());
@@ -675,11 +601,8 @@ TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket
         // 2 0 (1619, 110, 50) -1
     }
     if (packet.getId() == MinecraftPacketIds::ContainerClose) {
-        auto ptr = (ContainerClosePacket *) &packet;
-        ContainerID containerId = dAccess<ContainerID, 48>(ptr);
-        bool b = dAccess<bool, 49>(ptr);
-        logger.info("ContainerClose {} {}", (int) containerId, b);
-        // 2 false
+        auto &ptr = (ContainerClosePacket &) packet;
+        mPocketInventory.onContainerClosePacket(ptr);
     }
     if (packet.getId() == MinecraftPacketIds::ItemStackResponse) {
         auto ptr = (ItemStackResponsePacket *) &packet;

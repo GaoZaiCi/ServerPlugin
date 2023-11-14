@@ -62,3 +62,13 @@ void Utils::sendPacket(Player *player, const std::shared_ptr<Packet> &packet) {
     sender->sendToClient(*player->getNetworkIdentifier(), *packet, (SubClientId) player->getClientSubId());
 }
 
+std::string Utils::getContainerEnumName(ContainerEnumName name) {
+    std::unordered_map<ContainerEnumName, std::string, ContainerEnumNameHasher> &map = *(std::unordered_map<ContainerEnumName, std::string, ContainerEnumNameHasher> *) dlsym_real("?ContainerCollectionNameMap@@3V?$unordered_map@W4ContainerEnumName@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@UContainerEnumNameHasher@@U?$equal_to@W4ContainerEnumName@@@3@V?$allocator@U?$pair@$$CBW4ContainerEnumName@@V?$basic_string@DU?$char_traits@D@std@@V?$allocator@D@2@@std@@@std@@@3@@std@@A");
+    return map[name];
+}
+
+void Utils::loadItem(NetworkItemStackDescriptor *descriptor, const ItemStack &item) {
+    auto fun = (void (*)(NetworkItemStackDescriptor *, ItemStack const &)) dlsym_real("??0NetworkItemStackDescriptor@@QEAA@AEBVItemStack@@@Z");
+    fun(descriptor, item);
+}
+
