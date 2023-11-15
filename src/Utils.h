@@ -9,6 +9,9 @@
 #include "mc/Tag.hpp"
 #include "mc/AttributeInstance.hpp"
 #include "mc/MinecraftPackets.hpp"
+#include "mc/Json.hpp"
+
+using namespace Json;
 
 enum EnchantType : short {
     arrowDamage = 19,//力量
@@ -77,6 +80,8 @@ public:
     static std::string getContainerEnumName(ContainerEnumName name);
 
     static void loadItem(NetworkItemStackDescriptor *descriptor,const ItemStack &item);
+
+    static Value parseJson(const std::string &json);
 
     struct ContainerEnumNameHasher {
     public:

@@ -18,10 +18,16 @@
 using namespace std;
 
 class ItemStack;
+class ItemInstance;
 
 class InventorySlotPacket;
 
 class Dimension;
+
+#define InventoryMaxSize 51
+#define LastPageSlot 52
+#define NextPageSlot 53
+#define MaxPage 5
 
 
 namespace std {
@@ -38,15 +44,33 @@ private:
     Logger logger;
 public:
     unordered_map<ActorUniqueID, unordered_map<uint32_t, ItemStack>> playerInventoryMap;
+    unordered_map<ActorUniqueID, uint32_t> playerInventoryPageMap;
     unordered_map<unsigned __int64, tuple<ContainerID, ActorUniqueID, AutomaticID<Dimension, int>, BlockPos, BlockPos>> inventoryMap;
 public:
     PocketInventory();
 
     void init();
 
+    void openInventory(Player *player);
+
+    void sendInventorySlots(Player *player, ContainerID id, uint32_t first, uint32_t last);
+
     void sendInventorySlot(Player *player, ContainerID id, uint32_t slot, const ItemStack &item);
 
+    void sendItemStackResponseSuccess(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId, ContainerEnumName fromContainer, uint32_t fromSlot, const ItemStack &fromItem, ContainerEnumName toContainer, uint32_t toSlot, const ItemStack &toItem);
+
+    void sendItemStackResponseError(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId);
+
     void onContainerClosePacket(ContainerClosePacket &packet);
+
+    void loadPlayerData(Player *player);
+
+    void savePlayerData(Player *player);
+
+    void updateInventoryItem(Player *player, uint32_t slot, const ItemStack &item);
+
+    ItemStack &getInventoryItem(Player *player, uint32_t slot);
+
 };
 
 
@@ -97,13 +121,11 @@ public:
         ss << "action:[";
         for (auto &it: actionList) {
             switch (it->mType) {
+                case ItemStackRequestActionType::Place:
+                case ItemStackRequestActionType::Swap:
+                case ItemStackRequestActionType::Drop:
                 case ItemStackRequestActionType::Take: {
-                    auto p = (ItemStackRequestActionTake *) it.get();
-                    ss << p->toString() << " ";
-                    break;
-                }
-                case ItemStackRequestActionType::Place: {
-                    auto p = (ItemStackRequestActionPlace *) it.get();
+                    auto p = (ItemStackRequestActionTransferBase *) it.get();
                     ss << p->toString() << " ";
                     break;
                 }

@@ -72,3 +72,10 @@ void Utils::loadItem(NetworkItemStackDescriptor *descriptor, const ItemStack &it
     fun(descriptor, item);
 }
 
+Value Utils::parseJson(const string &json) {
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(json, root, false);
+    return root;
+}
+
