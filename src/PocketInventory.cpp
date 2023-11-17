@@ -34,9 +34,15 @@
 #include "mc/LevelData.hpp"
 #include "mc/Recipe.hpp"
 #include "mc/Recipes.hpp"
-#include "mc/RecipeUnlockingRequirement.hpp"
 #include "mc/SemVersion.hpp"
 #include "mc/ItemLockHelper.hpp"
+#include "mc/VanillaItemNames.hpp"
+#include "mc/CraftingTag.hpp"
+#include "mc/BlockSource.hpp"
+#include "mc/LevelChunk.hpp"
+#include "mc/MovingBlockActor.hpp"
+#include "mc/Dimension.hpp"
+#include "mc/BaseGameVersion.hpp"
 
 using namespace Event;
 
@@ -50,19 +56,19 @@ PocketInventory::PocketInventory() : logger(__FILE__) {
 
 void PocketInventory::init() {
     ServerStartedEvent::subscribe_ref([](auto &event) {
-        ItemStack itemStack("minecraft:saddle", 1, 0, nullptr);
+        ItemStack itemStack(VanillaItemNames::Saddle, 1, 0, nullptr);
         itemStack.setCustomName("§o§l§b移动背包");
         itemStack.setCustomLore({"§e右键或者长按打开背包"});
         itemStack.getUserData()->putBoolean("PocketInventory", true);
         Utils::enchant(itemStack, EnchantType::durability, MINSHORT);
         ItemLockHelper::setKeepOnDeath(itemStack, true);
 
-        auto &recipes = Global<Level>->getRecipes();
-        SemVersion version(1, 20, 10, "", "");
-        recipes.addShapedRecipe("PL::operator", itemStack, {"AAA", "ABA", "AAA"}, {
-                Recipes::Type("minecraft:leather", 'A', 1, 0),
-                Recipes::Type("minecraft:diamond", 'B', 1, 0)
-        }, {"crafting_table"}, 2, nullptr, nullopt, version);
+        auto &baseGameVersion = Global<Level>->getLevelData().getBaseGameVersion();
+        SemVersion version = baseGameVersion.asSemVersion();
+        Global<Level>->getRecipes().addShapedRecipe("PL::operator", itemStack, {"AAA", "ABA", "AAA"}, {
+                {VanillaItemNames::Leather, 'A', 1, 0},
+                {VanillaItemNames::Diamond, 'B', 1, 0}
+        }, {CraftingTag::CRAFTING_TABLE}, 2, nullptr, nullopt, version);
         return true;
     });
     PlayerJoinEvent::subscribe_ref([this](auto &event) {
@@ -77,7 +83,6 @@ void PocketInventory::init() {
         return true;
     });
     PlayerUseItemEvent::subscribe_ref([this](auto &event) {
-        logger.info("打开界面 {}", event.mItemStack->getNbt()->toSNBT());
         if (event.mItemStack->hasUserData()) {
             if (event.mItemStack->getUserData()->contains("PocketInventory")) {
                 openInventory(event.mPlayer);
@@ -90,16 +95,96 @@ void PocketInventory::init() {
 void PocketInventory::openInventory(Player *player) {
     auto serverPlayer = (ServerPlayer *) player;
 
-    BlockPos pos1 = player->getBlockPos();
-    pos1.y += 3;
+    BlockPos posA = player->getBlockPos();
+    posA.y += 3;
 
-    BlockPos pos2 = pos1;
-    pos2.z++;
+    BlockPos posB = posA;
+    posB.z++;
 
-    Level::setBlock(pos1, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
-    Level::setBlock(pos2, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
+    /*Level::setBlock(posA, player->getDimensionId(), VanillaBlockTypeIds::MovingBlock, 0);
+    Level::setBlock(posB, player->getDimensionId(), VanillaBlockTypeIds::MovingBlock, 0);
 
-    BlockActor *chestBlockActor = Level::getBlockEntity(pos1, player->getDimensionId());
+    auto blockActorA = (MovingBlockActor *) Level::getBlockEntity(posA, player->getDimensionId());
+    auto blockActorB = (MovingBlockActor *) Level::getBlockEntity(posB, player->getDimensionId());
+
+    auto nbtA = CompoundTag::fromSNBT(R"({
+            "movingBlock": {
+            "name": "minecraft:light_block"
+        },
+            "movingBlockExtra": {
+            "name": "minecraft:chest",
+            "states":{"facing_direction":4}
+        },
+            "display": {
+            "Name": ""
+        }
+        })");
+    logger.info("nbt {}", nbtA->toSNBT());
+    auto globalHelper = dlsym_real("??_7DefaultDataLoadHelper@@6B@");
+    blockActorA->load(player->getLevel(), *nbtA, *(DataLoadHelper * ) & globalHelper);
+    blockActorB->load(player->getLevel(), *nbtA, *(DataLoadHelper * ) & globalHelper);
+
+    blockActorA->refreshData();
+    blockActorB->refreshData();*/
+
+    auto blockA = Level::getBlock(posA, player->getDimensionId());
+    auto blockB = Level::getBlock(posB, player->getDimensionId());
+
+    if (!blockA->isAir() || !blockB->isAir()){
+        player->sendText("§c当前周围有障碍物，请在空旷的地方打开");
+        return;
+    }
+
+    /*auto nbtA = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
+    if (!blockA->isAir()) {
+        nbtA->putCompound("Block", CompoundTag::fromBlock(blockA));
+        if (blockA->hasBlockEntity()) {
+            auto blockEntity = Level::getBlockEntity(posA, player->getDimensionId());
+            nbtA->putCompound("BlockEntity", CompoundTag::fromBlockActor(blockEntity));
+        }
+    }
+
+    auto nbtB = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
+    if (!blockB->isAir()) {
+        nbtB->putCompound("Block", CompoundTag::fromBlock(blockB));
+        if (blockB->hasBlockEntity()) {
+            auto blockEntity = Level::getBlockEntity(posB, player->getDimensionId());
+            nbtB->putCompound("BlockEntity", CompoundTag::fromBlockActor(blockEntity));
+        }
+    }
+
+    logger.info("A {}", nbtA->toSNBT());
+    logger.info("B {}", nbtB->toSNBT());
+
+    int dim = player->getDimensionId();
+    {
+        if (nbtA->contains("Block")) {
+            Level::setBlock({posA.x, posA.y + 1, posA.z}, dim, nbtA->getCompound("Block"));
+            if (nbtA->contains("BlockEntity")) {
+                auto blockEntity = Level::getBlockEntity(posA, player->getDimensionId());
+                if (blockEntity) {
+                    auto globalHelper = dlsym_real("??_7DefaultDataLoadHelper@@6B@");
+                    blockEntity->load(player->getLevel(), *nbtA->getCompound("BlockEntity"), *(DataLoadHelper * ) & globalHelper);
+                }
+            }
+        }
+        if (nbtB->contains("Block")) {
+            Level::setBlock({posB.x, posB.y + 1, posB.z}, dim, nbtB->getCompound("Block"));
+            if (nbtB->contains("BlockEntity")) {
+                auto blockEntity = Level::getBlockEntity(posB, player->getDimensionId());
+                if (blockEntity) {
+                    auto globalHelper = dlsym_real("??_7DefaultDataLoadHelper@@6B@");
+                    blockEntity->load(player->getLevel(), *nbtB->getCompound("BlockEntity"), *(DataLoadHelper * ) & globalHelper);
+                }
+            }
+        }
+    }*/
+
+
+    Level::setBlock(posA, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
+    Level::setBlock(posB, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
+
+    BlockActor *chestBlockActor = Level::getBlockEntity(posA, player->getDimensionId());
     chestBlockActor->setCustomName("§b" + player->getName() + "§e的移动背包");
     chestBlockActor->refreshData();
 
@@ -108,14 +193,14 @@ void PocketInventory::openInventory(Player *player) {
     std::shared_ptr<ContainerOpenPacket> packet = Utils::createPacket<ContainerOpenPacket>(MinecraftPacketIds::ContainerOpen);
     *(ContainerID *) ((uintptr_t) packet.get() + 48) = nextContainerID;
     *(ContainerType *) ((uintptr_t) packet.get() + 49) = ContainerType::CONTAINER;
-    *(BlockPos *) ((uintptr_t) packet.get() + 52) = pos1;
+    *(BlockPos *) ((uintptr_t) packet.get() + 52) = posA;
     *(ActorUniqueID *) ((uintptr_t) packet.get() + 64) = ActorUniqueID::INVALID_ID;
 
-    Schedule::delay([this, player, nextContainerID, packet, pos1, pos2] {
+    Schedule::delay([this, player, nextContainerID, packet, posA, posB] {
         Utils::sendPacket(player, packet);
         uint32_t page = mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()];
         sendInventorySlots(player, nextContainerID, page * InventoryMaxSize, (page * InventoryMaxSize) + InventoryMaxSize);
-        this->inventoryMap[player->getNetworkIdentifier()->getHash()] = {nextContainerID, player->getActorUniqueId(), player->getDimensionId(), pos1, pos2};
+        this->inventoryMap[player->getNetworkIdentifier()->getHash()] = {nextContainerID, player->getActorUniqueId(), player->getDimensionId(), posA, posB};
     }, 5);
 }
 
@@ -132,10 +217,10 @@ void PocketInventory::sendInventorySlots(Player *player, ContainerID id, uint32_
             }
         }
         uint32_t page = mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()];
-        ItemStack lastItem("minecraft:cherry_sign", 1, 0, nullptr);
+        ItemStack lastItem(VanillaItemNames::CherrySign, 1, 0, nullptr);
         lastItem.setCustomName("§o§l§e上一页");
         lastItem.setCustomLore({"§6点击前往背包上一页", "§e当前页数(" + to_string(page) + "/" + to_string(MaxPage) + ")"});
-        ItemStack nextItem("minecraft:warped_sign", 1, 0, nullptr);
+        ItemStack nextItem(VanillaItemNames::WarpedSign, 1, 0, nullptr);
         nextItem.setCustomName("§o§l§e下一页");
         nextItem.setCustomLore({"§6点击前往背包下一页", "§e当前页数(" + to_string(page) + "/" + to_string(MaxPage) + ")"});
         sendInventorySlot(player, id, LastPageSlot, lastItem);
@@ -197,6 +282,7 @@ void PocketInventory::onContainerClosePacket(ContainerClosePacket &packet) {
 }
 
 void PocketInventory::loadPlayerData(Player *player) {
+    logger.info("加载玩家数据 {}",player->getName());
     unordered_map<uint32_t, ItemStack> items;
     ifstream data("plugins/NativeEnhancements/players/" + player->getXuid() + ".dat", std::ios::binary);
     if (data.is_open()) {
@@ -220,17 +306,17 @@ void PocketInventory::loadPlayerData(Player *player) {
 }
 
 void PocketInventory::savePlayerData(Player *player) {
+    logger.info("保存玩家数据 {}",player->getName());
+    auto it = this->playerInventoryMap.find(player->getActorUniqueId());
+    if (it == this->playerInventoryMap.end()) {
+        return;
+    }
     ofstream data("plugins/NativeEnhancements/players/" + player->getXuid() + ".dat");
     if (data.is_open()) {
-        auto it = this->playerInventoryMap.find(player->getActorUniqueId());
-        if (it == this->playerInventoryMap.end()) {
-            data.close();
-            return;
-        }
-        auto nbt = CompoundTag::create();
-        auto inventory = ListTag::create();
+        auto nbt = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
+        auto inventory = Utils::makeTag<ListTag>(Tag::Type::List);
         for (auto &item: it->second) {
-            auto tag = CompoundTag::create();
+            auto tag = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
             tag->putInt("Slot", item.first);
             tag->putCompound("Item", item.second.save());
             inventory->add(std::move(tag));
@@ -243,12 +329,16 @@ void PocketInventory::savePlayerData(Player *player) {
 
 void PocketInventory::updateInventoryItem(Player *player, uint32_t slot, const ItemStack &item) {
     uint32_t page = this->playerInventoryPageMap[player->getActorUniqueId()];
-    this->playerInventoryMap[player->getActorUniqueId()][(page * InventoryMaxSize) + slot] = item;
+    uint32_t index = (page * InventoryMaxSize) + slot;
+    logger.info("更新虚拟背包 {} 页数 {} 物品 为 {}",page,index,item.getName());
+    this->playerInventoryMap[player->getActorUniqueId()][index] = item;
 }
 
 ItemStack &PocketInventory::getInventoryItem(Player *player, uint32_t slot) {
     uint32_t page = this->playerInventoryPageMap[player->getActorUniqueId()];
-    return this->playerInventoryMap[player->getActorUniqueId()][(page * InventoryMaxSize) + slot];
+    uint32_t index = (page * InventoryMaxSize) + slot;
+    logger.info("获取虚拟背包 {} 页数 {} 物品",page,index);
+    return this->playerInventoryMap[player->getActorUniqueId()][index];
 }
 
 
@@ -375,7 +465,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             if (itemStack.isNull()) {
                                 targetItem.serverInitNetId();
                                 player->getSupplies().setItem(op.dstInfo.mSlot, targetItem, ContainerID::Inventory, false);
-                                mPocketInventory.updateInventoryItem(player, op.dstInfo.mSlot, ItemStack::EMPTY_ITEM);
+                                mPocketInventory.updateInventoryItem(player, op.srcInfo.mSlot, ItemStack::EMPTY_ITEM);
                                 logger.info("当前物品放置 {}", op.dstInfo.mSlot);
                             } else if (itemStack.matchesItem(targetItem)) {
                                 if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
@@ -385,7 +475,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 }
                                 itemStack.add(targetItem.getCount());
                                 player->getSupplies().setItem(op.dstInfo.mSlot, itemStack, ContainerID::Inventory, false);
-                                mPocketInventory.updateInventoryItem(player, op.dstInfo.mSlot, ItemStack::EMPTY_ITEM);
+                                mPocketInventory.updateInventoryItem(player, op.srcInfo.mSlot, ItemStack::EMPTY_ITEM);
                                 logger.info("当前物品数量增加 {}", op.dstInfo.mSlot);
                             } else {
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
@@ -521,6 +611,11 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             logger.warn("携带版暂时不支持操作");
                             break;
                         } else {
+                            if (op.dstInfo.mSlot == LastPageSlot || op.dstInfo.mSlot == NextPageSlot) {
+                                logger.error("不可跟特殊物品交互");
+                                mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                break;
+                            }
                             // win10
                             if (op.dstInfo.mId == ContainerEnumName::HotbarContainer || op.dstInfo.mId == ContainerEnumName::InventoryContainer) {
                                 ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
@@ -593,20 +688,23 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
 }
 
 TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVContainerClosePacket@@@Z", ServerNetworkHandler, NetworkIdentifier const &identifier, ContainerClosePacket const &packet) {
-    Logger logger(__FILE__);
-    ContainerID containerId = dAccess<ContainerID, 48>(&packet);
-    bool b = dAccess<bool, 49>(&packet);
     auto it = mPocketInventory.inventoryMap.find(identifier.getHash());
     if (it != mPocketInventory.inventoryMap.end()) {
-        logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
-
+        mPocketInventory.logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
         auto player = Global<Level>->getPlayer(get<1>(it->second));
         AutomaticID<Dimension, int> dim = get<2>(it->second);
         BlockPos pos1 = get<3>(it->second);
         BlockPos pos2 = get<4>(it->second);
         Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
         Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
-
+        //player->getRegion().removeBlockEntity(pos1);
+        //player->getRegion().removeBlockEntity(pos2);
+        //player->getRegion().removeBlock(pos1);
+        //player->getRegion().removeBlock(pos2);
+        /*Schedule::delay([pos1,pos2, dim]{
+            Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
+            Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
+        },1);*/
         mPocketInventory.inventoryMap.erase(it);
         mPocketInventory.savePlayerData(player);
     }
@@ -616,7 +714,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
 
 TStaticHook(void, "?addLooseCreativeItems@Item@@SAX_NAEBVBaseGameVersion@@VItemRegistryRef@@@Z", Item, bool value, BaseGameVersion const &version, ItemRegistryRef itemRegistry) {
     original(value, version, itemRegistry);
-    ItemStack itemStack("minecraft:saddle", 1, 0, nullptr);
+    ItemStack itemStack(VanillaItemNames::Saddle, 1, 0, nullptr);
     itemStack.setCustomName("§o§l§b移动背包");
     itemStack.setCustomLore({"§e右键或者长按打开背包"});
     itemStack.getUserData()->putBoolean("PocketInventory", true);
@@ -625,3 +723,10 @@ TStaticHook(void, "?addLooseCreativeItems@Item@@SAX_NAEBVBaseGameVersion@@VItemR
     Item::addCreativeItem(itemRegistry, itemStack);
 }
 
+/*
+TInstanceHook(void, "?onBlockChanged@Dimension@@UEAAXAEAVBlockSource@@AEBVBlockPos@@IAEBVBlock@@2HPEBUActorBlockSyncMessage@@W4BlockChangedEventTarget@@PEAVActor@@@Z",
+              Dimension, BlockSource &source, BlockPos const &pos, uint32_t value1,
+              Block const &block1, Block const &block2, int value2, ActorBlockSyncMessage const *message, BlockChangedEventTarget target, Actor *actor) {
+    mPocketInventory.logger.info("onBlockChanged {} {} {} {} {}",pos.toString(),value1,value2,block1.getName(),block2.getName());
+    original(this, source, pos,value1,block1,block2,value2,message,target,actor);
+}*/

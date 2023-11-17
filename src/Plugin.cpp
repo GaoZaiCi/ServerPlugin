@@ -564,10 +564,18 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
     return original(this, identifier, packet);
 }
 
+// UpdateSubChunkBlocksPacket::UpdateSubChunkBlocksPacket(
+// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &,
+// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &)
+class UpdateSubChunkBlocksPacket : public Packet {
+public:
+};
 
 
 TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket@@W4SubClientId@@@Z", NetworkSystem, NetworkIdentifier const &identifier, Packet const &packet, SubClientId id) {
-    //logger.info("Sending {}",packet.getName());
+    /*if (packet.getId() != MinecraftPacketIds::MoveActorDelta && packet.getId() != MinecraftPacketIds::SetActorData && packet.getId() != MinecraftPacketIds::SetActorMotion) {
+        logger.info("Sending {}", packet.getName());
+    }*/
     if (packet.getId() == MinecraftPacketIds::PlayerList) {
         auto ptr = (PlayerListPacket *) &packet;
         auto players = Level::getAllPlayers();

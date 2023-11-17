@@ -18,13 +18,14 @@
 using namespace std;
 
 class ItemStack;
+
 class ItemInstance;
 
 class InventorySlotPacket;
 
 class Dimension;
 
-#define InventoryMaxSize 51
+#define InventoryMaxSize 52
 #define LastPageSlot 52
 #define NextPageSlot 53
 #define MaxPage 5
@@ -40,9 +41,8 @@ namespace std {
 }
 
 class PocketInventory {
-private:
-    Logger logger;
 public:
+    Logger logger;
     unordered_map<ActorUniqueID, unordered_map<uint32_t, ItemStack>> playerInventoryMap;
     unordered_map<ActorUniqueID, uint32_t> playerInventoryPageMap;
     unordered_map<unsigned __int64, tuple<ContainerID, ActorUniqueID, AutomaticID<Dimension, int>, BlockPos, BlockPos>> inventoryMap;
@@ -57,7 +57,8 @@ public:
 
     void sendInventorySlot(Player *player, ContainerID id, uint32_t slot, const ItemStack &item);
 
-    void sendItemStackResponseSuccess(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId, ContainerEnumName fromContainer, uint32_t fromSlot, const ItemStack &fromItem, ContainerEnumName toContainer, uint32_t toSlot, const ItemStack &toItem);
+    void
+    sendItemStackResponseSuccess(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId, ContainerEnumName fromContainer, uint32_t fromSlot, const ItemStack &fromItem, ContainerEnumName toContainer, uint32_t toSlot, const ItemStack &toItem);
 
     void sendItemStackResponseError(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId);
 
@@ -95,13 +96,6 @@ public:
         return ss.str();
     }
 };
-
-class ItemStackRequestActionPlace : public ItemStackRequestActionTransferBase {
-};
-
-class ItemStackRequestActionTake : public ItemStackRequestActionTransferBase {
-};
-
 
 class ItemStackRequestData {
 public:
@@ -195,7 +189,6 @@ public:
     ContainerEnumName containerId;
     std::vector<ItemStackResponseSlotInfo> slots;
 public:
-
     ItemStackResponseContainerInfo(ContainerEnumName containerId, const vector<ItemStackResponseSlotInfo> &slots)
             : containerId(containerId), slots(slots) {}
 
