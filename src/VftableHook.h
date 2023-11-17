@@ -16,37 +16,35 @@
 
 extern uintptr_t imageBaseAddr;
 
+namespace VH {
+    template<class T, class U>
+    void VHook(T *pT, int Tidx, U *pU, int Uidx) {
+        auto pTVtAddr = (size_t *) *(size_t *) pT;
+        auto pUVtAddr = (size_t *) *(size_t *) pU;
 
-/**
-    * 获取实例虚表基址
-    * @param inst
-    * @return
-    */
-void *calculateVtb(void const *inst) {
-    if (inst == nullptr) {
-        return nullptr;
+        DWORD dwProct = 0;
+        VirtualProtect(pTVtAddr, sizeof(size_t), PAGE_READWRITE, &dwProct);
+        pTVtAddr[Tidx] = pUVtAddr[Uidx];
+        VirtualProtect(pTVtAddr, sizeof(size_t), dwProct, nullptr);
+    };
+
+    void VHookFun(void *pT, int Tidx, uintptr_t funcAdd, uintptr_t *ret) {
+        auto pTVtAddr = (uintptr_t *) *(uintptr_t *) pT;
+        DWORD dwProct = 0;
+        *ret = pTVtAddr[Tidx];
+        VirtualProtect(pTVtAddr, sizeof(size_t), PAGE_READWRITE, &dwProct);
+        pTVtAddr[Tidx] = funcAdd;
+        VirtualProtect(pTVtAddr, sizeof(size_t), dwProct, &dwProct);
     }
-    return (void *) (*((uintptr_t *) inst) - imageBaseAddr + EXE_64_ADDRESS);
-}
 
-template<class T, class U>
-void VHook(T *pT, int Tidx, U *pU, int Uidx) {
-    auto pTVtAddr = (size_t *) *(size_t *) pT;
-    auto pUVtAddr = (size_t *) *(size_t *) pU;
-
-    DWORD dwProct = 0;
-    VirtualProtect(pTVtAddr, sizeof(size_t), PAGE_READWRITE, &dwProct);
-    pTVtAddr[Tidx] = pUVtAddr[Uidx];
-    VirtualProtect(pTVtAddr, sizeof(size_t), dwProct, nullptr);
-};
-
-void VHookFun(void *pT, int Tidx, uintptr_t funcAdd,uintptr_t *ret) {
-    auto pTVtAddr = (uintptr_t *) *(uintptr_t *) pT;
-    DWORD dwProct = 0;
-    *ret = pTVtAddr[Tidx];
-    VirtualProtect(pTVtAddr, sizeof(size_t), PAGE_READWRITE, &dwProct);
-    pTVtAddr[Tidx] = funcAdd;
-    VirtualProtect(pTVtAddr, sizeof(size_t), dwProct, &dwProct);
+    void VHookFunEx(void *vtable, int Tidx, uintptr_t funcAdd, uintptr_t *ret) {
+        auto pTVtAddr = (uintptr_t *) vtable;
+        DWORD dwProct = 0;
+        *ret = pTVtAddr[Tidx];
+        VirtualProtect(pTVtAddr, sizeof(uintptr_t) * Tidx, PAGE_READWRITE, &dwProct);
+        pTVtAddr[Tidx] = funcAdd;
+        VirtualProtect(pTVtAddr, sizeof(uintptr_t) * Tidx, dwProct, &dwProct);
+    }
 }
 
 

@@ -86,8 +86,16 @@ void BloodMoon::init() {
         }
         return true;
     });
-    Event::PlayerCmdEvent::subscribe_ref([this](auto &event) {
-        logger.info("cmd {}", event.mCommand);
+    PlayerCmdEvent::subscribe_ref([this](auto &event) {
+        if (event.mCommand == "me 血月启动") {
+            Level::runcmd("/time set night");
+            this->enabled = true;
+            Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
+            logger.info("血月升起");
+        }
+        return true;
+    });
+    ConsoleCmdEvent::subscribe_ref([this](auto &event) {
         if (event.mCommand == "me 血月启动") {
             Level::runcmd("/time set night");
             this->enabled = true;

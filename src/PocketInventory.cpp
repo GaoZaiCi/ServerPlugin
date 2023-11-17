@@ -95,7 +95,7 @@ void PocketInventory::init() {
 void PocketInventory::openInventory(Player *player) {
     auto serverPlayer = (ServerPlayer *) player;
 
-    BlockPos posA,posB;
+    BlockPos posA, posB;
 
     /*Level::setBlock(posA, player->getDimensionId(), VanillaBlockTypeIds::MovingBlock, 0);
     Level::setBlock(posB, player->getDimensionId(), VanillaBlockTypeIds::MovingBlock, 0);
@@ -123,7 +123,7 @@ void PocketInventory::openInventory(Player *player) {
     blockActorA->refreshData();
     blockActorB->refreshData();*/
 
-    if (!getFakeChestPos(player,&posA,&posB)) {
+    if (!getFakeChestPos(player, &posA, &posB)) {
         player->sendText("§c当前周围有障碍物，请在空旷的地方打开");
         return;
     }
@@ -275,7 +275,7 @@ void PocketInventory::onContainerClosePacket(ContainerClosePacket &packet) {
 }
 
 void PocketInventory::loadPlayerData(Player *player) {
-    logger.info("加载玩家数据 {}", player->getName());
+    //logger.info("加载玩家数据 {}", player->getName());
     unordered_map<uint32_t, ItemStack> items;
     ifstream data("plugins/NativeEnhancements/players/" + player->getXuid() + ".dat", std::ios::binary);
     if (data.is_open()) {
@@ -299,7 +299,7 @@ void PocketInventory::loadPlayerData(Player *player) {
 }
 
 void PocketInventory::savePlayerData(Player *player) {
-    logger.info("保存玩家数据 {}", player->getName());
+    //logger.info("保存玩家数据 {}", player->getName());
     auto it = this->playerInventoryMap.find(player->getActorUniqueId());
     if (it == this->playerInventoryMap.end()) {
         return;
@@ -353,18 +353,14 @@ bool PocketInventory::getFakeChestPos(Player *player, BlockPos *posA, BlockPos *
 }
 
 TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVItemStackRequestPacket@@@Z", ServerNetworkHandler, NetworkIdentifier const &identifier, ItemStackRequestPacket const &packet) {
-    Logger logger(__FILE__);
-    logger.info("ItemStackRequest {}", packet.toString());
+    //mPocketInventory.logger.info("ItemStackRequest {}", packet.toString());
     auto it = mPocketInventory.inventoryMap.find(identifier.getHash());
     if (it != mPocketInventory.inventoryMap.end()) {
-        logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
-
+        //mPocketInventory.logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
         if (packet.batch == nullptr || packet.batch->list.empty()) {
             return;
         }
-
         auto player = Global<Level>->getPlayer(get<1>(it->second));
-
         auto &list = packet.batch->list;
         if (list.size() > 1) {
             AutomaticID<Dimension, int> dim = get<2>(it->second);
@@ -390,7 +386,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                     case ItemStackRequestActionType::Place: {
                         auto &op = (ItemStackRequestActionTransferBase &) *action;
                         if (op.srcInfo.mSlot == LastPageSlot) {
-                            logger.info("上一页");
+                            mPocketInventory.logger.info("上一页");
                             mPocketInventory.sendItemStackResponseError(player, item->netId);
                             uint32_t page = mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()];
                             if (page != 0) {
@@ -398,12 +394,12 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()] = page;
                                 mPocketInventory.sendInventorySlots(player, get<0>(it->second), page * InventoryMaxSize, (page * InventoryMaxSize) + InventoryMaxSize);
                             } else {
-                                logger.warn("已经到第一页了");
+                                mPocketInventory.logger.warn("已经到第一页了");
                             }
                             break;
                         }
                         if (op.srcInfo.mSlot == NextPageSlot) {
-                            logger.info("下一页");
+                            mPocketInventory.logger.info("下一页");
                             mPocketInventory.sendItemStackResponseError(player, item->netId);
                             uint32_t page = mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()];
                             if (page < MaxPage) {
@@ -411,12 +407,12 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()] = page;
                                 mPocketInventory.sendInventorySlots(player, get<0>(it->second), page * InventoryMaxSize, (page * InventoryMaxSize) + InventoryMaxSize);
                             } else {
-                                logger.warn("已经到最后一页了");
+                                mPocketInventory.logger.warn("已经到最后一页了");
                             }
                             break;
                         }
                         if (op.srcInfo.mId == ContainerEnumName::LevelEntityContainer && op.dstInfo.mId == ContainerEnumName::CursorContainer) {
-                            logger.info("从虚拟箱子拿到光标上");
+                            mPocketInventory.logger.info("从虚拟箱子拿到光标上");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.srcInfo.mSlot);
                             ItemStack itemStack = player->getPlayerUIItem((PlayerUISlot) 0);
 
@@ -424,51 +420,51 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 targetItem.serverInitNetId();
                                 player->setPlayerUIItem((PlayerUISlot) 0, targetItem);
                                 mPocketInventory.updateInventoryItem(player, op.srcInfo.mSlot, ItemStack::EMPTY_ITEM);
-                                logger.info("光标为空，直接放东西 {}", op.dstInfo.mSlot);
+                                mPocketInventory.logger.info("光标为空，直接放东西 {}", op.dstInfo.mSlot);
                             } else if (itemStack.matchesItem(targetItem)) {
                                 if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                     mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                    logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                    mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
                                     break;
                                 }
                                 itemStack.add(targetItem.getCount());
                                 player->setPlayerUIItem((PlayerUISlot) 0, itemStack);
                                 mPocketInventory.updateInventoryItem(player, op.srcInfo.mSlot, ItemStack::EMPTY_ITEM);
-                                logger.info("光标有东西，类型一样，更新数量 {}", itemStack.getCount());
+                                mPocketInventory.logger.info("光标有东西，类型一样，更新数量 {}", itemStack.getCount());
                             } else {
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                logger.error("当前物品冲突 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                mPocketInventory.logger.error("当前物品冲突 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
                                 break;
                             }
                             //mPocketInventory.sendItemStackResponseSuccess(player,item->netId,op.srcInfo.mId,op.srcInfo.mSlot,targetItem,op.dstInfo.mId,op.dstInfo.mSlot,itemStack);
                         }
                         if ((op.srcInfo.mId == ContainerEnumName::HotbarContainer && op.dstInfo.mId == ContainerEnumName::CursorContainer) || (op.srcInfo.mId == ContainerEnumName::InventoryContainer && op.dstInfo.mId == ContainerEnumName::CursorContainer)) {
-                            logger.info("把玩家背包物品放到光标");
+                            mPocketInventory.logger.info("把玩家背包物品放到光标");
                             ItemStack targetItem = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
                             ItemStack itemStack = player->getPlayerUIItem((PlayerUISlot) 0);
                             if (itemStack.isNull()) {
                                 player->setPlayerUIItem((PlayerUISlot) 0, targetItem);
                                 player->getSupplies().setItem(op.srcInfo.mSlot, ItemStack::EMPTY_ITEM, ContainerID::Inventory, false);
-                                logger.info("光标没有东西，直接放置");
+                                mPocketInventory.logger.info("光标没有东西，直接放置");
                             } else if (itemStack.matchesItem(targetItem)) {
                                 if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                     mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                    logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                    mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                                     break;
                                 }
                                 itemStack.add(targetItem.getCount());
                                 player->setPlayerUIItem((PlayerUISlot) 0, itemStack);
-                                logger.info("光标有一样的东西，更新数量 {}", itemStack.getCount());
+                                mPocketInventory.logger.info("光标有一样的东西，更新数量 {}", itemStack.getCount());
                             } else {
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                mPocketInventory.logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                                 break;
                             }
                             mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
                         // 直接移动到背包
                         if (op.srcInfo.mId == ContainerEnumName::LevelEntityContainer && op.dstInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer) {
-                            logger.info("从虚拟背包移动到背包");
+                            mPocketInventory.logger.info("从虚拟背包移动到背包");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.srcInfo.mSlot);
                             ItemStack itemStack = player->getSupplies().getItem(op.dstInfo.mSlot, ContainerID::Inventory);
 
@@ -476,26 +472,26 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 targetItem.serverInitNetId();
                                 player->getSupplies().setItem(op.dstInfo.mSlot, targetItem, ContainerID::Inventory, false);
                                 mPocketInventory.updateInventoryItem(player, op.srcInfo.mSlot, ItemStack::EMPTY_ITEM);
-                                logger.info("当前物品放置 {}", op.dstInfo.mSlot);
+                                mPocketInventory.logger.info("当前物品放置 {}", op.dstInfo.mSlot);
                             } else if (itemStack.matchesItem(targetItem)) {
                                 if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                     mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                    logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                    mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
                                     break;
                                 }
                                 itemStack.add(targetItem.getCount());
                                 player->getSupplies().setItem(op.dstInfo.mSlot, itemStack, ContainerID::Inventory, false);
                                 mPocketInventory.updateInventoryItem(player, op.srcInfo.mSlot, ItemStack::EMPTY_ITEM);
-                                logger.info("当前物品数量增加 {}", op.dstInfo.mSlot);
+                                mPocketInventory.logger.info("当前物品数量增加 {}", op.dstInfo.mSlot);
                             } else {
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                logger.error("当前物品冲突 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                mPocketInventory.logger.error("当前物品冲突 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
                                 break;
                             }
                             //mPocketInventory.sendItemStackResponseSuccess(player,item->netId,op.srcInfo.mId,op.srcInfo.mSlot,targetItem,op.dstInfo.mId,op.dstInfo.mSlot,itemStack);
                         }
                         if ((op.srcInfo.mId == ContainerEnumName::HotbarContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) || (op.srcInfo.mId == ContainerEnumName::InventoryContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer)) {
-                            logger.info("从玩家背包移动到虚拟背包");
+                            mPocketInventory.logger.info("从玩家背包移动到虚拟背包");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.dstInfo.mSlot);
                             ItemStack itemStack = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
 
@@ -505,47 +501,47 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             } else if (targetItem.matchesItem(itemStack)) {
                                 if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                     mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                    logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                    mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                                     break;
                                 }
                                 itemStack.add(targetItem.getCount());
                                 player->getSupplies().setItem(op.srcInfo.mSlot, ItemStack::EMPTY_ITEM, ContainerID::Inventory, false);
                                 mPocketInventory.updateInventoryItem(player, op.dstInfo.mSlot, itemStack);
-                                logger.info("当前物品匹配，数量增加 {}", itemStack.getCount());
+                                mPocketInventory.logger.info("当前物品匹配，数量增加 {}", itemStack.getCount());
                             } else {
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                mPocketInventory.logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                                 break;
                             }
                             mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
                         if ((op.srcInfo.mId == ContainerEnumName::CursorContainer && op.dstInfo.mId == ContainerEnumName::HotbarContainer) || (op.srcInfo.mId == ContainerEnumName::CursorContainer && op.dstInfo.mId == ContainerEnumName::InventoryContainer)) {
-                            logger.info("从光标移动到玩家背包");
+                            mPocketInventory.logger.info("从光标移动到玩家背包");
                             ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
                             ItemStack itemStack = player->getSupplies().getItem(op.dstInfo.mSlot, ContainerID::Inventory);
                             if (itemStack.isNull()) {
                                 player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
                                 player->getSupplies().setItem(op.dstInfo.mSlot, targetItem, ContainerID::Inventory, false);
-                                logger.info("快捷栏为空，直接放置 {}", targetItem.toString());
+                                mPocketInventory.logger.info("快捷栏为空，直接放置 {}", targetItem.toString());
                             } else if (itemStack.matchesItem(targetItem)) {
                                 if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                     mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                    logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                    mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                                     break;
                                 }
                                 itemStack.add(targetItem.getCount());
                                 player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
                                 player->getSupplies().setItem(op.dstInfo.mSlot, itemStack, ContainerID::Inventory, false);
-                                logger.info("快捷栏已有物品，而且相同，合并后数量 {}", itemStack.getCount());
+                                mPocketInventory.logger.info("快捷栏已有物品，而且相同，合并后数量 {}", itemStack.getCount());
                             } else {
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                mPocketInventory.logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                                 break;
                             }
                             mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
                         if (op.srcInfo.mId == ContainerEnumName::CursorContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) {
-                            logger.info("把光标和虚拟背包的物品合并");
+                            mPocketInventory.logger.info("把光标和虚拟背包的物品合并");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.dstInfo.mSlot);
                             ItemStack itemStack = player->getPlayerUIItem((PlayerUISlot) 0);
                             if (targetItem.isNull()) {
@@ -555,7 +551,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             } else if (targetItem.matchesItem(targetItem)) {
                                 if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                     mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                    logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                    mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                                     break;
                                 }
                                 itemStack.add(targetItem.getCount());
@@ -564,12 +560,12 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
                             } else {
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                mPocketInventory.logger.error("当前物品冲突 {} {} {}", op.srcInfo.mSlot, itemStack.toString(), targetItem.toString());
                             }
                             mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
                         if (op.srcInfo.mId == ContainerEnumName::LevelEntityContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) {
-                            logger.info("虚拟背包物品拆分");
+                            mPocketInventory.logger.info("虚拟背包物品拆分");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.srcInfo.mSlot);
                             targetItem.serverInitNetId();
                             ItemStack itemStack(targetItem);
@@ -593,7 +589,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
                         if ((op.srcInfo.mId == ContainerEnumName::HotbarContainer && op.dstInfo.mId == ContainerEnumName::HotbarContainer) || (op.srcInfo.mId == ContainerEnumName::InventoryContainer && op.dstInfo.mId == ContainerEnumName::InventoryContainer)) {
-                            logger.info("背包物品拆分");
+                            mPocketInventory.logger.info("背包物品拆分");
                             ItemStack targetItem = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
                             ItemStack itemStack(targetItem);
                             itemStack.serverInitNetId();
@@ -618,11 +614,11 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                         if (op.src && op.dst) {
                             // 携带版
                             mPocketInventory.sendItemStackResponseError(player, item->netId);
-                            logger.warn("携带版暂时不支持操作");
+                            mPocketInventory.logger.warn("携带版暂时不支持操作");
                             break;
                         } else {
                             if (op.dstInfo.mSlot == LastPageSlot || op.dstInfo.mSlot == NextPageSlot) {
-                                logger.error("不可跟特殊物品交互");
+                                mPocketInventory.logger.error("不可跟特殊物品交互");
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
                                 break;
                             }
@@ -633,7 +629,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 if (itemStack.matchesItem(targetItem)) {
                                     if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                         mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                        logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                        mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
                                         break;
                                     }
                                     targetItem.add(itemStack.getCount());
@@ -651,7 +647,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 if (itemStack.matchesItem(targetItem)) {
                                     if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
                                         mPocketInventory.sendItemStackResponseError(player, item->netId);
-                                        logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                        mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
                                         break;
                                     }
                                     targetItem.add(itemStack.getCount());
@@ -669,7 +665,13 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                     case ItemStackRequestActionType::Drop: {
                         auto &op = (ItemStackRequestActionTransferBase &) *action;
                         ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
-                        player->drop(targetItem, true);
+                        auto itemActor = player->spawnAtLocation(targetItem, -0.5);
+                        auto &rot = player->getRotation();
+
+                        auto x = (float) (-sin(rot.y / 180 * M_PI) * 0.3);
+                        auto z = (float) (cos(rot.y / 180 * M_PI) * 0.3);
+
+                        itemActor->setVelocity({x, 0.0f, z});
                         player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
 
                         auto responsePacket = Utils::createPacket<ItemStackResponsePacket>(MinecraftPacketIds::ItemStackResponse);
@@ -687,7 +689,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                     default:
                         break;
                 }
-                logger.warn("ItemStackRequestAction {}", ItemStackRequestAction::getActionTypeName(action->mType));
+                //mPocketInventory.logger.warn("ItemStackRequestAction {}", ItemStackRequestAction::getActionTypeName(action->mType));
             }
         }
         mPocketInventory.sendInventorySlot(player, ContainerID::PlayerUIOnly, 0, player->getPlayerUIItem((PlayerUISlot) 0));
@@ -700,21 +702,13 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
 TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVContainerClosePacket@@@Z", ServerNetworkHandler, NetworkIdentifier const &identifier, ContainerClosePacket const &packet) {
     auto it = mPocketInventory.inventoryMap.find(identifier.getHash());
     if (it != mPocketInventory.inventoryMap.end()) {
-        mPocketInventory.logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
+        //mPocketInventory.logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
         auto player = Global<Level>->getPlayer(get<1>(it->second));
         AutomaticID<Dimension, int> dim = get<2>(it->second);
         BlockPos pos1 = get<3>(it->second);
         BlockPos pos2 = get<4>(it->second);
         Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
         Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
-        //player->getRegion().removeBlockEntity(pos1);
-        //player->getRegion().removeBlockEntity(pos2);
-        //player->getRegion().removeBlock(pos1);
-        //player->getRegion().removeBlock(pos2);
-        /*Schedule::delay([pos1,pos2, dim]{
-            Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
-            Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
-        },1);*/
         mPocketInventory.inventoryMap.erase(it);
         mPocketInventory.savePlayerData(player);
     }

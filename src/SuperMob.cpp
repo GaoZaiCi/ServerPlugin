@@ -4,6 +4,7 @@
 
 #include "SuperMob.h"
 #include "Utils.h"
+#include "VftableHook.h"
 
 #include "mc/Level.hpp"
 #include "mc/Player.hpp"
@@ -16,6 +17,9 @@
 #include "mc/ItemStack.hpp"
 #include "mc/ListTag.hpp"
 #include "mc/VanillaItemNames.hpp"
+#include "mc/ActorDamageSource.hpp"
+
+extern SuperMob mSuperMob;
 
 SuperMob::SuperMob() : logger(__FILE__) {
 }
@@ -180,7 +184,30 @@ void SuperMob::init() {
             if (mob->getRandom().nextInt(0, 100) > 70) {
                 mob->setNameTag("jeb_");
             }
+        } else if (name == "minecraft:pig") {
+            if (mob->getRandom().nextInt(0, 100) > 70) {
+                mob->addTag("SuperMob");
+            }
         }
         return true;
     });
+}
+
+TInstanceHook(void, "?normalTick@Mob@@UEAAXXZ", Mob) {
+    if (hasTag("SuperMob") && getActorIdentifier().getCanonicalName() == "minecraft:pig") {
+        setRotationX(getRandom().nextFloat(0,360));
+        setRotationY(getRandom().nextFloat(0,180));
+        auto players = Level::getAllPlayers();
+        for (auto const &player: players) {
+            if (player->distanceTo(getPos()) < 3) {
+                Mob::setTarget(player);
+                ActorDamageSource source(ActorDamageCause::EntityAttack);
+                source.setEntity(getActorUniqueId());
+                Mob::attack(*player, source.getCause());
+                player->hurt(source, 0.5, false, false);
+                break;
+            }
+        }
+    }
+    return original(this);
 }

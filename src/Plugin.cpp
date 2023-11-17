@@ -42,7 +42,6 @@
 #include "MC/Dimension.hpp"
 #include <LLAPI.h>
 #include <ServerAPI.h>
-#include "VftableHook.h"
 #include "MC/Brightness.hpp"
 #include "MC/ServerLevel.hpp"
 #include "MC/ComponentItem.hpp"
@@ -302,7 +301,7 @@ TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket
     /*if (packet.getId() != MinecraftPacketIds::MoveActorDelta && packet.getId() != MinecraftPacketIds::SetActorData && packet.getId() != MinecraftPacketIds::SetActorMotion) {
         logger.info("Sending {}", packet.getName());
     }*/
-    if (packet.getId() == MinecraftPacketIds::PlayerList) {
+    /*if (packet.getId() == MinecraftPacketIds::PlayerList) {
         auto ptr = (PlayerListPacket *) &packet;
         auto players = Level::getAllPlayers();
         for (auto &it: players) {
@@ -362,9 +361,8 @@ TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket
         uint32_t id1 = dAccess<uint32_t, 60>(ptr);
         uint8_t data = dAccess<uint8_t, 64>(ptr);
         uint32_t mRuntimeId = dAccess<uint32_t, 68>(ptr);
-
         logger.info("UpdateBlock {} {} {} {}", pos.toString(), id1, (int) data, mRuntimeId);
-    }
+    }*/
     return original(this, identifier, packet, id);
 }
 
