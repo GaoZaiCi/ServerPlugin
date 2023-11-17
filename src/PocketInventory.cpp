@@ -95,11 +95,7 @@ void PocketInventory::init() {
 void PocketInventory::openInventory(Player *player) {
     auto serverPlayer = (ServerPlayer *) player;
 
-    BlockPos posA = player->getBlockPos();
-    posA.y += 3;
-
-    BlockPos posB = posA;
-    posB.z++;
+    BlockPos posA,posB;
 
     /*Level::setBlock(posA, player->getDimensionId(), VanillaBlockTypeIds::MovingBlock, 0);
     Level::setBlock(posB, player->getDimensionId(), VanillaBlockTypeIds::MovingBlock, 0);
@@ -127,10 +123,7 @@ void PocketInventory::openInventory(Player *player) {
     blockActorA->refreshData();
     blockActorB->refreshData();*/
 
-    auto blockA = Level::getBlock(posA, player->getDimensionId());
-    auto blockB = Level::getBlock(posB, player->getDimensionId());
-
-    if (!blockA->isAir() || !blockB->isAir()){
+    if (!getFakeChestPos(player,&posA,&posB)) {
         player->sendText("§c当前周围有障碍物，请在空旷的地方打开");
         return;
     }
@@ -282,7 +275,7 @@ void PocketInventory::onContainerClosePacket(ContainerClosePacket &packet) {
 }
 
 void PocketInventory::loadPlayerData(Player *player) {
-    logger.info("加载玩家数据 {}",player->getName());
+    logger.info("加载玩家数据 {}", player->getName());
     unordered_map<uint32_t, ItemStack> items;
     ifstream data("plugins/NativeEnhancements/players/" + player->getXuid() + ".dat", std::ios::binary);
     if (data.is_open()) {
@@ -306,7 +299,7 @@ void PocketInventory::loadPlayerData(Player *player) {
 }
 
 void PocketInventory::savePlayerData(Player *player) {
-    logger.info("保存玩家数据 {}",player->getName());
+    logger.info("保存玩家数据 {}", player->getName());
     auto it = this->playerInventoryMap.find(player->getActorUniqueId());
     if (it == this->playerInventoryMap.end()) {
         return;
@@ -330,17 +323,34 @@ void PocketInventory::savePlayerData(Player *player) {
 void PocketInventory::updateInventoryItem(Player *player, uint32_t slot, const ItemStack &item) {
     uint32_t page = this->playerInventoryPageMap[player->getActorUniqueId()];
     uint32_t index = (page * InventoryMaxSize) + slot;
-    logger.info("更新虚拟背包 {} 页数 {} 物品 为 {}",page,index,item.getName());
     this->playerInventoryMap[player->getActorUniqueId()][index] = item;
 }
 
 ItemStack &PocketInventory::getInventoryItem(Player *player, uint32_t slot) {
     uint32_t page = this->playerInventoryPageMap[player->getActorUniqueId()];
     uint32_t index = (page * InventoryMaxSize) + slot;
-    logger.info("获取虚拟背包 {} 页数 {} 物品",page,index);
     return this->playerInventoryMap[player->getActorUniqueId()][index];
 }
 
+bool PocketInventory::getFakeChestPos(Player *player, BlockPos *posA, BlockPos *posB) {
+    auto pos = player->getBlockPos();
+    for (int i = 3; i <= 7; ++i) {
+        posA->x = pos.x;
+        posA->y = pos.y + i;
+        posA->z = pos.z;
+
+        posB->x = pos.x;
+        posB->y = pos.y + i;
+        posB->z = pos.z + 1;
+
+        auto blockA = Level::getBlock(*posA, player->getDimensionId());
+        auto blockB = Level::getBlock(*posB, player->getDimensionId());
+        if (blockA->isAir() && blockB->isAir()) {
+            return true;
+        }
+    }
+    return false;
+}
 
 TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVItemStackRequestPacket@@@Z", ServerNetworkHandler, NetworkIdentifier const &identifier, ItemStackRequestPacket const &packet) {
     Logger logger(__FILE__);

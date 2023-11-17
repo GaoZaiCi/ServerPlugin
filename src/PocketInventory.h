@@ -72,6 +72,7 @@ public:
 
     ItemStack &getInventoryItem(Player *player, uint32_t slot);
 
+    bool getFakeChestPos(Player *player, BlockPos *posA, BlockPos *posB);
 };
 
 

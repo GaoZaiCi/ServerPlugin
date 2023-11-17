@@ -73,6 +73,8 @@
 
 #include "Utils.h"
 #include "PocketInventory.h"
+#include "BloodMoon.h"
+#include "SuperMob.h"
 
 using namespace std;
 using namespace Event;
@@ -93,7 +95,6 @@ extern enum ActorType EntityTypeFromString(std::string const &);
 
 uintptr_t imageBaseAddr;
 
-bool BloodMoon;
 
 #define CHECK_SCORE(name) \
 try {\
@@ -103,6 +104,8 @@ Scoreboard::setScore(name, event.mPlayer, v);\
 Scoreboard::setScore(name, event.mPlayer, 0);\
 }\
 
+BloodMoon mBloodMoon;
+SuperMob mSuperMob;
 PocketInventory mPocketInventory;
 
 void PluginInit() {
@@ -110,7 +113,11 @@ void PluginInit() {
     logger.info("Build {} {}", __DATE__, __TIME__);
     logger.info("服务器增强插件开始加载 BDS句柄:{}", (void *) handle);
     imageBaseAddr = (uintptr_t) handle;
+
+    mBloodMoon.init();
+    mSuperMob.init();
     mPocketInventory.init();
+
     PlayerJoinEvent::subscribe_ref([](auto &event) {
         event.mPlayer->sendText("§b欢迎玩家§e" + event.mPlayer->getName() + "§b进入游戏！");
         Schedule::delay([event] {
@@ -126,228 +133,6 @@ void PluginInit() {
     });
     Event::RegCmdEvent::subscribe_ref([](auto &event) {
         PluginCommand::setup(event.mCommandRegistry);
-        return true;
-    });
-    Event::MobSpawnedEvent::subscribe_ref([](auto &event) {
-        Mob *mob = event.mMob;
-        BlockSource &source = mob->getRegion();
-        ActorDefinitionIdentifier identifier = mob->getActorIdentifier();
-        const string &name = identifier.getCanonicalName();
-        if (name == "minecraft:creeper") {
-            if (mob->getRandom().nextInt(0, 100) > 70) {
-                mob->addTag("SuperMob");
-                mob->setNameTag("闪电苦力怕");
-                mob->addDefinitionGroup("minecraft:charged_creeper");
-                Level &level = source.getLevel();
-                Player *player = level.getPlayer("VanessaSpy");
-                if (player) {
-                    //设置生物攻击目标
-                    mob->setTarget(player);
-                    if (player->distanceTo(*mob) < 50.0f) {
-                        auto const &instance = mob->getAttribute(SharedAttributes::HEALTH);
-                        auto &p = (AttributeInstance &) instance;
-                        p.setMaxValue(40);
-                        p.setCurrentValue(40);
-                    }
-                }
-            }
-        } else if (name == "minecraft:zombie" || name == "minecraft:zombie_villager" || name == "minecraft:husk") {
-            if (mob->getRandom().nextInt(0, 100) > 60) {
-                if (mob->getRandom().nextBoolean()) {
-                    mob->addTag("SuperMob");
-                    mob->setNameTag("Grumm");
-                    if (mob->getRandom().nextInt(0, 100) > 50) {
-                        ItemStack itemStack("minecraft:diamond_sword", 1, 0, nullptr);
-                        unique_ptr<ListTag> listTag = ListTag::create();
-                        {
-                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                            compoundTag->putShort("id", EnchantType::durability);
-                            compoundTag->putShort("lvl", MINSHORT);
-                            listTag->add(std::move(compoundTag));
-                        }
-                        {
-                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                            compoundTag->putShort("id", EnchantType::damage_arthropods);
-                            compoundTag->putShort("lvl", MINSHORT);
-                            listTag->add(std::move(compoundTag));
-                        }
-                        {
-                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                            compoundTag->putShort("id", EnchantType::damage_undead);
-                            compoundTag->putShort("lvl", MINSHORT);
-                            listTag->add(std::move(compoundTag));
-                        }
-                        {
-                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                            compoundTag->putShort("id", EnchantType::mending);
-                            compoundTag->putShort("lvl", MINSHORT);
-                            listTag->add(std::move(compoundTag));
-                        }
-                        if (itemStack.hasUserData()) {
-                            itemStack.getUserData()->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
-                        } else {
-                            unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                            compoundTag->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
-                            itemStack.setUserData(std::move(compoundTag));
-                        }
-                        mob->setCarriedItem(itemStack);
-                    }
-                } else {
-                    mob->setNameTag("Dinnerbone");
-                    if (mob->getRandom().nextInt(0, 100) > 70) {
-                        mob->setArmor((ArmorSlot) 0, ItemStack(VanillaItemNames::DiamondHelmet.getString(), 1, 0, nullptr));
-                        mob->setArmor((ArmorSlot) 1, ItemStack(VanillaItemNames::DiamondChestplate.getString(), 1, 0, nullptr));
-                        mob->setArmor((ArmorSlot) 2, ItemStack(VanillaItemNames::DiamondLeggings.getString(), 1, 0, nullptr));
-                        mob->setArmor((ArmorSlot) 3, ItemStack(VanillaItemNames::DiamondBoots.getString(), 1, 0, nullptr));
-                        if (mob->getRandom().nextBoolean()) {
-                            auto const &instance = mob->getAttribute(SharedAttributes::HEALTH);
-                            auto &p = (AttributeInstance &) instance;
-                            p.setMaxValue(50);
-                            p.setCurrentValue(50);
-                        }
-                    }
-                }
-            }
-        } else if (name == "minecraft:skeleton") {
-            if (mob->getRandom().nextInt(0, 100) > 90) {
-                mob->addTag("SuperMob");
-                ItemStack itemStack("minecraft:bow", 1, 0, nullptr);
-                unique_ptr<ListTag> listTag = ListTag::create();
-                {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                    compoundTag->putShort("id", EnchantType::durability);
-                    compoundTag->putShort("lvl", MINSHORT);
-                    listTag->add(std::move(compoundTag));
-                }
-                {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                    compoundTag->putShort("id", EnchantType::arrowInfinite);
-                    compoundTag->putShort("lvl", MINSHORT);
-                    listTag->add(std::move(compoundTag));
-                }
-                {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                    compoundTag->putShort("id", EnchantType::damage_undead);
-                    compoundTag->putShort("lvl", MINSHORT);
-                    listTag->add(std::move(compoundTag));
-                }
-                if (itemStack.getUserData()) {
-                    itemStack.getUserData()->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
-                } else {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
-                    unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
-                    compoundTag->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
-                    itemStack.setUserData(std::move(compoundTag));
-                }
-                mob->setCarriedItem(itemStack);
-                mob->setOffhandSlot(itemStack);
-                if (mob->getRandom().nextInt(0, 100) > 60) {
-                    mob->setNameTag("VanessaSpy");
-                }
-            }
-        } else if (name == "minecraft:spider") {
-            if (mob->getRandom().nextInt(0, 100) > 70) {
-                mob->addTag("SuperMob");
-                mob->setNameTag("蜘蛛侠");
-                {
-                    auto const &instance = mob->getAttribute(SharedAttributes::MOVEMENT_SPEED);
-                    auto &p = (AttributeInstance &) instance;
-                    p.setMaxValue(10);
-                    p.setCurrentValue(10);
-                }
-                {
-                    auto const &instance = mob->getAttribute(SharedAttributes::LAVA_MOVEMENT_SPEED);
-                    auto &p = (AttributeInstance &) instance;
-                    p.setMaxValue(10);
-                    p.setCurrentValue(10);
-                }
-                {
-                    auto const &instance = mob->getAttribute(SharedAttributes::UNDERWATER_MOVEMENT_SPEED);
-                    auto &p = (AttributeInstance &) instance;
-                    p.setMaxValue(10);
-                    p.setCurrentValue(10);
-                }
-            }
-        } else if (name == "minecraft:wolf") {
-            if (mob->getRandom().nextInt(0, 100) > 45) {
-                mob->setNameTag("VanessaSpy");
-            }
-        } else if (name == "minecraft:phantom") {
-            mob->setNameTag("提醒睡觉小助手");
-            {
-                auto const &instance = mob->getAttribute(SharedAttributes::MOVEMENT_SPEED);
-                auto &p = (AttributeInstance &) instance;
-                p.setMaxValue(0.1f);
-                p.setCurrentValue(0.1f);
-            }
-        } else if (name == "minecraft:sheep") {
-            if (mob->getRandom().nextInt(0, 100) > 70) {
-                mob->setNameTag("jeb_");
-            }
-        }
-        Level &level = source.getLevel();
-        if (BloodMoon) {
-            try {
-                {
-                    auto const &instance = mob->getAttribute(SharedAttributes::HEALTH);
-                    auto &p = (AttributeInstance &) instance;
-                    p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 5);
-                    p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 5);
-                }
-                {
-                    auto const &instance = mob->getAttribute(SharedAttributes::MOVEMENT_SPEED);
-                    auto &p = (AttributeInstance &) instance;
-                    p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
-                    p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
-                }
-                {
-                    auto const &instance = mob->getAttribute(SharedAttributes::LAVA_MOVEMENT_SPEED);
-                    auto &p = (AttributeInstance &) instance;
-                    p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
-                    p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
-                }
-                {
-                    auto &p = Utils::getEntityAttribute(*mob, SharedAttributes::UNDERWATER_MOVEMENT_SPEED);
-                    p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
-                    p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
-                }
-                for (int i = 0, max = mob->getRandom().nextInt(2, 5); i < max; ++i) {
-                    ActorUniqueID uniqueId = level.getNewUniqueID();
-                    Actor *actor = CommandUtils::spawnEntityAt(source, event.mPos, identifier.getCanonicalName(), uniqueId, nullptr);
-                    actor->addTag("BloodMoon");
-                    {
-                        auto const &instance = actor->getAttribute(SharedAttributes::HEALTH);
-                        auto &p = (AttributeInstance &) instance;
-                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 2);
-                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 2);
-                    }
-                    {
-                        auto const &instance = actor->getAttribute(SharedAttributes::MOVEMENT_SPEED);
-                        auto &p = (AttributeInstance &) instance;
-                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
-                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
-                    }
-                    {
-                        auto const &instance = actor->getAttribute(SharedAttributes::LAVA_MOVEMENT_SPEED);
-                        auto &p = (AttributeInstance &) instance;
-                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
-                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
-                    }
-                    {
-                        auto const &instance = actor->getAttribute(SharedAttributes::UNDERWATER_MOVEMENT_SPEED);
-                        auto &p = (AttributeInstance &) instance;
-                        p.setMaxValue(p.getMaxValue() + p.getMaxValue() * 10 / 7);
-                        p.setCurrentValue(p.getCurrentValue() + p.getCurrentValue() * 10 / 7);
-                    }
-                }
-                mob->addTag("BloodMoon");
-            } catch (exception &e) {
-                logger.error("发生异常", e.what());
-            }
-        }
         return true;
     });
     Event::ServerStartedEvent::subscribe_ref([](auto &event) {
@@ -403,45 +188,11 @@ void PluginInit() {
         Scoreboard::addScore(event.mPlayer, PLAYER_ATTACK_COUNT, 1);
         return true;
     });
-    Event::PlayerCmdEvent::subscribe_ref([](auto &event) {
-        logger.info("cmd {}", event.mCommand);
-        if (event.mCommand == "me 血月启动") {
-            Level::runcmd("/time set night");
-            BloodMoon = true;
-            Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
-            logger.info("血月升起");
-        }
-        return true;
-    });
+
 }
 
 TInstanceHook(void, "?_subTick@ServerLevel@@MEAAXXZ", ServerLevel) {
-    int day = LevelUtils::getDay(getTime());
-    int time = LevelUtils::getTimeOfDay(getTime());
-    if (time == 13000 && !getPlayerList().empty()) {
-        if (day % 7 == 0) {
-            if (getRandom().nextInt(0, 100) > 50) {
-                BloodMoon = true;
-                Level::broadcastText("§c血月升起了！", TextType::SYSTEM);
-                logger.info("血月升起");
-            }
-        }
-    } else if (time == 18000 && BloodMoon) {
-        Level::broadcastText("§c血月已到达中期！", TextType::SYSTEM);
-    } else if ((time < 13000 || time == 23999) && BloodMoon) {
-        Level::broadcastText("§e血月结束了！", TextType::SYSTEM);
-        logger.info("血月结束");
-        for (auto &p: Level::getAllPlayers())p->sendBossEventPacket(BossEvent::Hide, string(), 0, BossEventColour::Red);
-        Schedule::delay([]() {
-            for (auto &it: Level::getAllEntities())if (it->hasTag("BloodMoon"))it->remove();
-        }, 20 * 5);
-        BloodMoon = false;
-    } else if (BloodMoon) {
-        float startTime = time - 13000.0f;
-        float endTime = 23999.0f - 13000.0f;
-        float percentage = (startTime / endTime);
-        for (auto &p: Level::getAllPlayers())p->sendBossEventPacket(BossEvent::Show, "§c血月", percentage, BossEventColour::Red);
-    }
+    mBloodMoon.onTick(this);
     return original(this);
 }
 
@@ -509,17 +260,6 @@ TInstanceHook(ItemActor*, "?spawnItem@Spawner@@QEAAPEAVItemActor@@AEAVBlockSourc
     return original(this, source, itemStack, actor, pos, value);
 }
 
-// Player::startSleepInBed(BlockPos const &)
-TInstanceHook(BedSleepingResult, "?startSleepInBed@Player@@UEAA?AW4BedSleepingResult@@AEBVBlockPos@@@Z", Player, BlockPos const &pos) {
-    if (BloodMoon) {
-        static vector<string> texts = {"§e你怎么睡得着的？", "§e你这个年龄段，你睡得着觉？", "§e有僵尸偷你东西！", "§e什么？你想睡觉？"};
-        int index = getRandom().nextInt(0, texts.size());
-        sendText(texts[index], TextType::TIP);
-        return (BedSleepingResult) 0;
-    }
-    return original(this, pos);
-}
-
 // ItemActor::_merge(ItemActor *)
 TInstanceHook(bool, "?_merge@ItemActor@@AEAA_NPEAV1@@Z", ItemActor, ItemActor *actor) {
     auto *item1 = (ItemStack *) ((uintptr_t) this + 1184);
@@ -549,20 +289,6 @@ TInstanceHook(bool, "?_merge@ItemActor@@AEAA_NPEAV1@@Z", ItemActor, ItemActor *a
 TInstanceHook(void, "?_becomeDirt@FarmBlock@@AEBAXAEAVBlockSource@@AEBVBlockPos@@PEAVActor@@@Z", FarmBlock, BlockSource &source, BlockPos const &pos, Actor *actor) {
 }
 
-//ServerNetworkHandler::handle(NetworkIdentifier const &,RequestNetworkSettingsPacket const &)
-TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVRequestNetworkSettingsPacket@@@Z", ServerNetworkHandler, NetworkIdentifier &identifier, RequestNetworkSettingsPacket & packet) {
-    int client = dAccess<int, 48>(&packet);
-    int protocol = SharedConstants::NetworkProtocolVersion;
-    logger.info("RequestNetworkSettingsPacket {} {}", client, protocol);
-    return original(this, identifier, packet);
-}
-
-TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVLoginPacket@@@Z", ServerNetworkHandler, NetworkIdentifier &identifier, LoginPacket & packet) {
-    int *client = (int *) ((uintptr_t) &packet + 48);
-    int protocol = SharedConstants::NetworkProtocolVersion;
-    logger.info("LoginPacket {} {}", *client, protocol);
-    return original(this, identifier, packet);
-}
 
 // UpdateSubChunkBlocksPacket::UpdateSubChunkBlocksPacket(
 // std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &,
@@ -660,11 +386,6 @@ TInstanceHook(void, "?releaseUsingItem@GameMode@@UEAAXXZ", GameMode) {
     ItemStack const &itemStack = getPlayer()->getSelectedItem();
     if (!itemStack.isNull() && itemStack.getItem()->isFood() && (getPlayer()->isHungry() || getPlayer()->forceAllowEating())) {
         Scoreboard::addScore(getPlayer(), PLAYER_EAT_COUNT, 1);
-        /*CompoundTag const *tag = itemStack.getUserData();
-        if (tag && tag->contains("BossItem")) {
-            getPlayer()->addEffect(MobEffectInstance((uint32_t) MobEffect::EffectType::InstantHealth, 20 * 60, 50));
-            getPlayer()->addEffect(MobEffectInstance((uint32_t) MobEffect::EffectType::JumpBoost, 20 * 60, 50));
-        }*/
     }
     return original(this);
 }
