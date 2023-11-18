@@ -94,6 +94,11 @@ void PocketInventory::init() {
 
 void PocketInventory::openInventory(Player *player) {
     auto serverPlayer = (ServerPlayer *) player;
+    auto it = this->inventoryMap.find(player->getNetworkIdentifier()->getHash());
+    if (it != this->inventoryMap.end()) {
+        player->sendText("§c当前背包已经打开");
+        return;
+    }
 
     BlockPos posA, posB;
 
@@ -189,12 +194,13 @@ void PocketInventory::openInventory(Player *player) {
     *(BlockPos *) ((uintptr_t) packet.get() + 52) = posA;
     *(ActorUniqueID *) ((uintptr_t) packet.get() + 64) = ActorUniqueID::INVALID_ID;
 
-    Schedule::delay([this, player, nextContainerID, packet, posA, posB] {
+    this->inventoryMap[player->getNetworkIdentifier()->getHash()] = {nextContainerID, player->getActorUniqueId(), player->getDimensionId(), posA, posB};
+
+    Schedule::delay([this, player, nextContainerID, packet] {
         Utils::sendPacket(player, packet);
         uint32_t page = mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()];
         sendInventorySlots(player, nextContainerID, page * InventoryMaxSize, (page * InventoryMaxSize) + InventoryMaxSize);
-        this->inventoryMap[player->getNetworkIdentifier()->getHash()] = {nextContainerID, player->getActorUniqueId(), player->getDimensionId(), posA, posB};
-    }, 5);
+    }, 3);
 }
 
 void PocketInventory::sendInventorySlots(Player *player, ContainerID id, uint32_t first, uint32_t last) {
@@ -353,10 +359,10 @@ bool PocketInventory::getFakeChestPos(Player *player, BlockPos *posA, BlockPos *
 }
 
 TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@AEBVItemStackRequestPacket@@@Z", ServerNetworkHandler, NetworkIdentifier const &identifier, ItemStackRequestPacket const &packet) {
-    //mPocketInventory.logger.info("ItemStackRequest {}", packet.toString());
+    mPocketInventory.logger.info("ItemStackRequest {}", packet.toString());
     auto it = mPocketInventory.inventoryMap.find(identifier.getHash());
     if (it != mPocketInventory.inventoryMap.end()) {
-        //mPocketInventory.logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
+        mPocketInventory.logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
         if (packet.batch == nullptr || packet.batch->list.empty()) {
             return;
         }
@@ -463,7 +469,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
                         // 直接移动到背包
-                        if (op.srcInfo.mId == ContainerEnumName::LevelEntityContainer && op.dstInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer) {
+                        if ((op.srcInfo.mId == ContainerEnumName::LevelEntityContainer && op.dstInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer) || (op.srcInfo.mId == ContainerEnumName::LevelEntityContainer && op.dstInfo.mId == ContainerEnumName::HotbarContainer) || (op.srcInfo.mId == ContainerEnumName::LevelEntityContainer && op.dstInfo.mId == ContainerEnumName::InventoryContainer)) {
                             mPocketInventory.logger.info("从虚拟背包移动到背包");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.srcInfo.mSlot);
                             ItemStack itemStack = player->getSupplies().getItem(op.dstInfo.mSlot, ContainerID::Inventory);
@@ -490,7 +496,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             }
                             //mPocketInventory.sendItemStackResponseSuccess(player,item->netId,op.srcInfo.mId,op.srcInfo.mSlot,targetItem,op.dstInfo.mId,op.dstInfo.mSlot,itemStack);
                         }
-                        if ((op.srcInfo.mId == ContainerEnumName::HotbarContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) || (op.srcInfo.mId == ContainerEnumName::InventoryContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer)) {
+                        if ((op.srcInfo.mId == ContainerEnumName::HotbarContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) || (op.srcInfo.mId == ContainerEnumName::InventoryContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) || (op.srcInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer && op.dstInfo.mId == ContainerEnumName::LevelEntityContainer)) {
                             mPocketInventory.logger.info("从玩家背包移动到虚拟背包");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.dstInfo.mSlot);
                             ItemStack itemStack = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
@@ -588,31 +594,52 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             }
                             mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
-                        if ((op.srcInfo.mId == ContainerEnumName::HotbarContainer && op.dstInfo.mId == ContainerEnumName::HotbarContainer) || (op.srcInfo.mId == ContainerEnumName::InventoryContainer && op.dstInfo.mId == ContainerEnumName::InventoryContainer)) {
-                            mPocketInventory.logger.info("背包物品拆分");
-                            ItemStack targetItem = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
-                            ItemStack itemStack(targetItem);
-                            itemStack.serverInitNetId();
+                        if ((op.srcInfo.mId == ContainerEnumName::HotbarContainer && op.dstInfo.mId == ContainerEnumName::HotbarContainer) || (op.srcInfo.mId == ContainerEnumName::InventoryContainer && op.dstInfo.mId == ContainerEnumName::InventoryContainer) || (op.srcInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer && op.dstInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer)) {
+                            if (op.srcInfo.mType.hasServerNetId()) {
+                                mPocketInventory.logger.info("玩家背包物品交换");
+                                ItemStack targetItem = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
+                                ItemStack itemStack = player->getSupplies().getItem(op.dstInfo.mSlot, ContainerID::Inventory);
+                                if (targetItem.matchesItem(itemStack)) {
+                                    if (targetItem.getCount() + itemStack.getCount() > targetItem.getMaxStackSize()) {
+                                        mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                        mPocketInventory.logger.error("当前物品数量异常 {} {} {}", op.dstInfo.mSlot, itemStack.toString(), targetItem.toString());
+                                        break;
+                                    }
+                                    itemStack.add(targetItem.getCount());
+                                    targetItem = ItemStack::EMPTY_ITEM;
+                                    player->getSupplies().setItem(op.srcInfo.mSlot, targetItem, ContainerID::Inventory, false);
+                                    player->getSupplies().setItem(op.dstInfo.mSlot, itemStack, ContainerID::Inventory, false);
+                                    mPocketInventory.logger.info("物品一样，合并后数量 {}", itemStack.getCount());
+                                } else {
+                                    player->getSupplies().swapSlots(op.srcInfo.mSlot, op.dstInfo.mSlot);
+                                    mPocketInventory.logger.info("交换物品位置");
+                                }
+                                mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
+                            } else {
+                                mPocketInventory.logger.info("背包物品拆分");
+                                ItemStack targetItem = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
+                                ItemStack itemStack(targetItem);
+                                itemStack.serverInitNetId();
 
-                            int count = targetItem.getCount() / 2;
-                            targetItem.set(count);
-                            itemStack.set(count);
-                            player->getSupplies().setItem(op.srcInfo.mSlot, targetItem, ContainerID::Inventory, false);
-                            player->getSupplies().setItem(op.dstInfo.mSlot, itemStack, ContainerID::Inventory, false);
-                            if (targetItem.getCount() % 2 != 0) {
-                                int value = targetItem.getCount() % 2;
-                                ItemStack uiItem(targetItem);
-                                uiItem.set(value);
-                                player->setPlayerUIItem((PlayerUISlot) 0, uiItem);
+                                int count = targetItem.getCount() / 2;
+                                targetItem.set(count);
+                                itemStack.set(count);
+                                player->getSupplies().setItem(op.srcInfo.mSlot, targetItem, ContainerID::Inventory, false);
+                                player->getSupplies().setItem(op.dstInfo.mSlot, itemStack, ContainerID::Inventory, false);
+                                if (targetItem.getCount() % 2 != 0) {
+                                    int value = targetItem.getCount() % 2;
+                                    ItemStack uiItem(targetItem);
+                                    uiItem.set(value);
+                                    player->setPlayerUIItem((PlayerUISlot) 0, uiItem);
+                                }
+                                mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                             }
-                            mPocketInventory.sendItemStackResponseSuccess(player, item->netId, op.srcInfo.mId, op.srcInfo.mSlot, targetItem, op.dstInfo.mId, op.dstInfo.mSlot, itemStack);
                         }
                         break;
                     }
                     case ItemStackRequestActionType::Swap: {
                         auto &op = (ItemStackRequestActionTransferBase &) *action;
                         if (op.src && op.dst) {
-                            // 携带版
                             mPocketInventory.sendItemStackResponseError(player, item->netId);
                             mPocketInventory.logger.warn("携带版暂时不支持操作");
                             break;
@@ -622,9 +649,14 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 mPocketInventory.sendItemStackResponseError(player, item->netId);
                                 break;
                             }
-                            // win10
-                            if (op.dstInfo.mId == ContainerEnumName::HotbarContainer || op.dstInfo.mId == ContainerEnumName::InventoryContainer) {
+                            if (op.dstInfo.mId == ContainerEnumName::HotbarContainer || op.dstInfo.mId == ContainerEnumName::InventoryContainer || op.dstInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer) {
+                                mPocketInventory.logger.info("玩家背包物品交换");
                                 ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
+                                if (targetItem.isNull()) {
+                                    mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                    mPocketInventory.logger.error("不支持移动端物品交换");
+                                    break;
+                                }
                                 ItemStack itemStack = player->getSupplies().getItem(op.dstInfo.mSlot, ContainerID::Inventory);
                                 if (itemStack.matchesItem(targetItem)) {
                                     if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
@@ -642,7 +674,13 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                 mPocketInventory.sendItemStackResponseSuccess(player, item->netId, ContainerEnumName::CursorContainer, 0, ItemStack::EMPTY_ITEM, op.dstInfo.mId, op.dstInfo.mSlot, targetItem);
                             }
                             if (op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) {
+                                mPocketInventory.logger.info("虚拟背包物品交换");
                                 ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
+                                if (targetItem.isNull()) {
+                                    mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                    mPocketInventory.logger.error("不支持移动端物品交换");
+                                    break;
+                                }
                                 ItemStack itemStack = mPocketInventory.getInventoryItem(player, op.dstInfo.mSlot);
                                 if (itemStack.matchesItem(targetItem)) {
                                     if (itemStack.getCount() + targetItem.getCount() > itemStack.getMaxStackSize()) {
@@ -653,9 +691,11 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                                     targetItem.add(itemStack.getCount());
                                     mPocketInventory.updateInventoryItem(player, op.dstInfo.mSlot, targetItem);
                                     player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
+                                    mPocketInventory.logger.info("物品一样，合并后数量 {}", targetItem);
                                 } else {
                                     player->setPlayerUIItem((PlayerUISlot) 0, itemStack);
                                     mPocketInventory.updateInventoryItem(player, op.dstInfo.mSlot, targetItem);
+                                    mPocketInventory.logger.info("物品不一样，交换");
                                 }
                                 mPocketInventory.sendItemStackResponseSuccess(player, item->netId, ContainerEnumName::CursorContainer, 0, ItemStack::EMPTY_ITEM, op.dstInfo.mId, op.dstInfo.mSlot, targetItem);
                             }
@@ -664,7 +704,21 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                     }
                     case ItemStackRequestActionType::Drop: {
                         auto &op = (ItemStackRequestActionTransferBase &) *action;
-                        ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
+                        ItemStack targetItem;
+                        if (op.srcInfo.mId == ContainerEnumName::CursorContainer) {
+                            targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
+                            player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
+                        } else if (op.srcInfo.mId == ContainerEnumName::HotbarContainer || op.srcInfo.mId == ContainerEnumName::InventoryContainer || op.srcInfo.mId == ContainerEnumName::CombinedHotbarAndInventoryContainer) {
+                            targetItem = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
+                            player->getSupplies().setItem(op.srcInfo.mSlot, ItemStack::EMPTY_ITEM, ContainerID::Inventory, false);
+                        } else if (op.srcInfo.mId == ContainerEnumName::LevelEntityContainer) {
+                            targetItem = mPocketInventory.getInventoryItem(player, op.srcInfo.mSlot);
+                            mPocketInventory.updateInventoryItem(player, op.srcInfo.mSlot, ItemStack::EMPTY_ITEM);
+                        } else {
+                            mPocketInventory.sendItemStackResponseError(player, item->netId);
+                            mPocketInventory.logger.error("当前操作容器不支持");
+                            break;
+                        }
                         auto itemActor = player->spawnAtLocation(targetItem, -0.5);
                         auto &rot = player->getRotation();
 
@@ -672,7 +726,6 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                         auto z = (float) (cos(rot.y / 180 * M_PI) * 0.3);
 
                         itemActor->setVelocity({x, 0.0f, z});
-                        player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
 
                         auto responsePacket = Utils::createPacket<ItemStackResponsePacket>(MinecraftPacketIds::ItemStackResponse);
                         auto &infoList = dAccess<vector<ItemStackResponseInfo>, 48>(responsePacket.get());
@@ -680,7 +733,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                         std::vector<ItemStackResponseContainerInfo> infos;
                         std::vector<ItemStackResponseSlotInfo> fromSlots;
                         fromSlots.emplace_back(0, 0, 0, get<TypedServerNetId<ItemStackNetIdTag, int, 0>>(targetItem.getItemStackNetIdVariant().id), string(), 0);
-                        infos.emplace_back(ContainerEnumName::CursorContainer, fromSlots);
+                        infos.emplace_back(op.srcInfo.mId, fromSlots);
 
                         infoList.emplace_back(ItemStackResponseInfo::Result::OK, item->netId, infos);
                         Utils::sendPacket(player, responsePacket);
@@ -689,7 +742,6 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                     default:
                         break;
                 }
-                //mPocketInventory.logger.warn("ItemStackRequestAction {}", ItemStackRequestAction::getActionTypeName(action->mType));
             }
         }
         mPocketInventory.sendInventorySlot(player, ContainerID::PlayerUIOnly, 0, player->getPlayerUIItem((PlayerUISlot) 0));

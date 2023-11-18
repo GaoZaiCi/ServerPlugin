@@ -28,7 +28,7 @@ class Dimension;
 #define InventoryMaxSize 52
 #define LastPageSlot 52
 #define NextPageSlot 53
-#define MaxPage 5
+#define MaxPage 10
 
 
 namespace std {
@@ -115,6 +115,7 @@ public:
         ss << "] ";
         ss << "action:[";
         for (auto &it: actionList) {
+            ss << ItemStackRequestAction::getActionTypeName(it->mType) << " ";
             switch (it->mType) {
                 case ItemStackRequestActionType::Place:
                 case ItemStackRequestActionType::Swap:
@@ -125,7 +126,6 @@ public:
                     break;
                 }
                 default:
-                    ss << ItemStackRequestAction::getActionTypeName(it->mType) << " ";
                     break;
             }
         }

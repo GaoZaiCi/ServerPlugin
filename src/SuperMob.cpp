@@ -194,7 +194,7 @@ void SuperMob::init() {
 }
 
 TInstanceHook(void, "?normalTick@Mob@@UEAAXXZ", Mob) {
-    if (hasTag("SuperMob") && getActorIdentifier().getCanonicalName() == "minecraft:pig") {
+    if (Mob::isAlive() && hasTag("SuperMob") && getActorIdentifier().getCanonicalName() == "minecraft:pig") {
         setRotationX(getRandom().nextFloat(0,360));
         setRotationY(getRandom().nextFloat(0,180));
         auto players = Level::getAllPlayers();

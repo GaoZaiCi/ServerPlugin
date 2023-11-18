@@ -301,6 +301,10 @@ TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket
     /*if (packet.getId() != MinecraftPacketIds::MoveActorDelta && packet.getId() != MinecraftPacketIds::SetActorData && packet.getId() != MinecraftPacketIds::SetActorMotion) {
         logger.info("Sending {}", packet.getName());
     }*/
+    if (packet.getId() == MinecraftPacketIds::ContainerClose) {
+        auto &ptr = (ContainerClosePacket &) packet;
+        mPocketInventory.onContainerClosePacket(ptr);
+    }
     /*if (packet.getId() == MinecraftPacketIds::PlayerList) {
         auto ptr = (PlayerListPacket *) &packet;
         auto players = Level::getAllPlayers();
