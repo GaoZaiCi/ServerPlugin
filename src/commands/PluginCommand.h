@@ -5,12 +5,12 @@
 #ifndef MINECRAFTSUPPORT_PLUGINCOMMAND_H
 #define MINECRAFTSUPPORT_PLUGINCOMMAND_H
 
-#include <MC/Command.hpp>
-#include <MC/CommandOrigin.hpp>
-#include <MC/CommandOutput.hpp>
-#include <MC/CommandPosition.hpp>
-#include <MC/CommandRegistry.hpp>
-#include "MC/CommandParameterData.hpp"
+#include "llapi/mc/Command.hpp"
+#include "llapi/mc/CommandOrigin.hpp"
+#include "llapi/mc/CommandOutput.hpp"
+#include "llapi/mc/CommandPosition.hpp"
+#include "llapi/mc/CommandRegistry.hpp"
+#include "llapi/mc/CommandParameterData.hpp"
 
 class PluginCommand : public Command {
 public:

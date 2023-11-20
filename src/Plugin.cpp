@@ -32,7 +32,7 @@
 #include <mc/MobEffectInstance.hpp>
 #include <MC/ActorFactory.hpp>
 #include "Version.h"
-#include "PluginCommand.h"
+#include "commands/PluginCommand.h"
 #include "ScheduleAPI.h"
 #include "Global.h"
 #include "GlobalServiceAPI.h"
@@ -71,9 +71,10 @@
 #include "MC/ChestBlockActor.hpp"
 
 #include "Utils.h"
-#include "PocketInventory.h"
-#include "BloodMoon.h"
-#include "SuperMob.h"
+#include "modules/PocketInventory.h"
+#include "modules/BloodMoon.h"
+#include "modules/SuperMob.h"
+#include "modules/FastLeafDecay.h"
 
 using namespace std;
 using namespace Event;
@@ -106,6 +107,7 @@ Scoreboard::setScore(name, event.mPlayer, 0);\
 BloodMoon mBloodMoon;
 SuperMob mSuperMob;
 PocketInventory mPocketInventory;
+FastLeafDecay mFastLeafDecay;
 
 void PluginInit() {
     HMODULE handle = GetModuleHandle(nullptr);
@@ -116,6 +118,7 @@ void PluginInit() {
     mBloodMoon.init();
     mSuperMob.init();
     mPocketInventory.init();
+    mFastLeafDecay.init();
 
     PlayerJoinEvent::subscribe_ref([](auto &event) {
         event.mPlayer->sendText("§b欢迎玩家§e" + event.mPlayer->getName() + "§b进入游戏！");
@@ -192,6 +195,7 @@ void PluginInit() {
 
 TInstanceHook(void, "?_subTick@ServerLevel@@MEAAXXZ", ServerLevel) {
     mBloodMoon.onTick(this);
+    mFastLeafDecay.onTick(this);
     return original(this);
 }
 

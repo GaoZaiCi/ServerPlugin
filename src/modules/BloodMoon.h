@@ -5,8 +5,8 @@
 #ifndef NATIVEENHANCEMENTS_BLOODMOON_H
 #define NATIVEENHANCEMENTS_BLOODMOON_H
 
-#include <EventAPI.h>
-#include <LoggerAPI.h>
+#include "EventAPI.h"
+#include "LoggerAPI.h"
 
 using namespace std;
 using namespace Event;

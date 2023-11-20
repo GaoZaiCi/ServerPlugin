@@ -8,7 +8,7 @@
 #include <tuple>
 
 #include "Utils.h"
-#include <LoggerAPI.h>
+#include "LoggerAPI.h"
 #include "mc/Packet.hpp"
 #include "mc/ItemStackRequestAction.hpp"
 #include "mc/ItemStackNetIdVariant.hpp"

@@ -8,6 +8,8 @@ file(GLOB_RECURSE SRC_FILES_DIR
         ${PROJECT_SOURCE_DIR}/SDK/Header/*.hpp
         ${PROJECT_SOURCE_DIR}/SDK/Header/*.h
         ${PROJECT_SOURCE_DIR}/src/*.cpp
+        ${PROJECT_SOURCE_DIR}/src/modules/*.cpp
+        ${PROJECT_SOURCE_DIR}/src/commands/*.cpp
         ${PROJECT_SOURCE_DIR}/src/*.hpp
         ${PROJECT_SOURCE_DIR}/src/*.h
         )
@@ -15,6 +17,8 @@ file(GLOB_RECURSE SRC_FILES_DIR
 include_directories(SDK/include)
 include_directories(SDK/include/llapi)
 include_directories(src)
+include_directories(src/modules)
+include_directories(src/commands)
 include_directories(
         capstone-next/include
         capstone-next/arch/X86

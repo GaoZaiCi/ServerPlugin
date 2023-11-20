@@ -6,8 +6,8 @@
 
 #include "PocketInventory.h"
 
-#include <EventAPI.h>
-#include <ScheduleAPI.h>
+#include "llapi/EventAPI.h"
+#include "llapi/ScheduleAPI.h"
 #include "mc/VanillaBlockTypeIds.hpp"
 #include "mc/LoopbackPacketSender.hpp"
 #include "mc/ContainerOpenPacket.hpp"
@@ -422,6 +422,12 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.srcInfo.mSlot);
                             ItemStack itemStack = player->getPlayerUIItem((PlayerUISlot) 0);
 
+                            if (targetItem.hasUserData() && targetItem.getUserData()->contains("PocketInventory")){
+                                mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                mPocketInventory.logger.error("不可将特殊物品放进背包");
+                                break;
+                            }
+
                             if (itemStack.isNull()) {
                                 targetItem.serverInitNetId();
                                 player->setPlayerUIItem((PlayerUISlot) 0, targetItem);
@@ -448,6 +454,13 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             mPocketInventory.logger.info("把玩家背包物品放到光标");
                             ItemStack targetItem = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
                             ItemStack itemStack = player->getPlayerUIItem((PlayerUISlot) 0);
+
+                            if (targetItem.hasUserData() && targetItem.getUserData()->contains("PocketInventory")){
+                                mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                mPocketInventory.logger.error("不可将特殊物品放进背包");
+                                break;
+                            }
+
                             if (itemStack.isNull()) {
                                 player->setPlayerUIItem((PlayerUISlot) 0, targetItem);
                                 player->getSupplies().setItem(op.srcInfo.mSlot, ItemStack::EMPTY_ITEM, ContainerID::Inventory, false);
@@ -473,6 +486,12 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             mPocketInventory.logger.info("从虚拟背包移动到背包");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.srcInfo.mSlot);
                             ItemStack itemStack = player->getSupplies().getItem(op.dstInfo.mSlot, ContainerID::Inventory);
+
+                            if (targetItem.hasUserData() && targetItem.getUserData()->contains("PocketInventory")){
+                                mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                mPocketInventory.logger.error("不可将特殊物品放进背包");
+                                break;
+                            }
 
                             if (itemStack.isNull()) {
                                 targetItem.serverInitNetId();
@@ -501,6 +520,12 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.dstInfo.mSlot);
                             ItemStack itemStack = player->getSupplies().getItem(op.srcInfo.mSlot, ContainerID::Inventory);
 
+                            if (targetItem.hasUserData() && targetItem.getUserData()->contains("PocketInventory")){
+                                mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                mPocketInventory.logger.error("不可将特殊物品放进背包");
+                                break;
+                            }
+
                             if (targetItem.isNull()) {
                                 player->getSupplies().setItem(op.srcInfo.mSlot, ItemStack::EMPTY_ITEM, ContainerID::Inventory, false);
                                 mPocketInventory.updateInventoryItem(player, op.dstInfo.mSlot, itemStack);
@@ -525,6 +550,7 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             mPocketInventory.logger.info("从光标移动到玩家背包");
                             ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
                             ItemStack itemStack = player->getSupplies().getItem(op.dstInfo.mSlot, ContainerID::Inventory);
+
                             if (itemStack.isNull()) {
                                 player->setPlayerUIItem((PlayerUISlot) 0, ItemStack::EMPTY_ITEM);
                                 player->getSupplies().setItem(op.dstInfo.mSlot, targetItem, ContainerID::Inventory, false);
@@ -550,6 +576,13 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             mPocketInventory.logger.info("把光标和虚拟背包的物品合并");
                             ItemStack targetItem = mPocketInventory.getInventoryItem(player, op.dstInfo.mSlot);
                             ItemStack itemStack = player->getPlayerUIItem((PlayerUISlot) 0);
+
+                            if (targetItem.hasUserData() && targetItem.getUserData()->contains("PocketInventory")){
+                                mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                mPocketInventory.logger.error("不可将特殊物品放进背包");
+                                break;
+                            }
+
                             if (targetItem.isNull()) {
                                 mPocketInventory.updateInventoryItem(player, op.dstInfo.mSlot, itemStack);
                                 mPocketInventory.sendInventorySlot(player, get<0>(it->second), op.dstInfo.mSlot, itemStack);
@@ -676,6 +709,13 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
                             if (op.dstInfo.mId == ContainerEnumName::LevelEntityContainer) {
                                 mPocketInventory.logger.info("虚拟背包物品交换");
                                 ItemStack targetItem = player->getPlayerUIItem((PlayerUISlot) 0);
+
+                                if (targetItem.hasUserData() && targetItem.getUserData()->contains("PocketInventory")){
+                                    mPocketInventory.sendItemStackResponseError(player, item->netId);
+                                    mPocketInventory.logger.error("不可将特殊物品放进背包");
+                                    break;
+                                }
+
                                 if (targetItem.isNull()) {
                                     mPocketInventory.sendItemStackResponseError(player, item->netId);
                                     mPocketInventory.logger.error("不支持移动端物品交换");
