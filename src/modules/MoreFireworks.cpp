@@ -34,52 +34,56 @@ void MoreFireworks::init() {
     ServerStartedEvent::subscribe_ref([](auto &event) {
         {
             ItemStack itemStack("minecraft:fireworks", 1, 0, nullptr);
+            Utils::enchant(itemStack, EnchantType::durability, MINSHORT);
             auto Fireworks = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
             Fireworks->putByte(FireworksItem::TAG_E_FLIGHT, 5);
             itemStack.getUserData()->putCompound(FireworksItem::TAG_FIREWORKS, std::move(Fireworks));
 
             auto &baseGameVersion = Global<Level>->getLevelData().getBaseGameVersion();
             auto version = baseGameVersion.asSemVersion();
-            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks", itemStack, {"AB"}, {
+            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks_5", itemStack, {"AB"}, {
                     {"minecraft:fireworks", 'A', 1, 0},
                     {"minecraft:tnt",       'B', 1, 0}
             }, {CraftingTag::CRAFTING_TABLE}, 2, nullptr, nullopt, version);
         }
         {
             ItemStack itemStack("minecraft:fireworks", 1, 0, nullptr);
+            Utils::enchant(itemStack, EnchantType::durability, MINSHORT);
             auto Fireworks = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
             Fireworks->putByte(FireworksItem::TAG_E_FLIGHT, 10);
             itemStack.getUserData()->putCompound(FireworksItem::TAG_FIREWORKS, std::move(Fireworks));
 
             auto &baseGameVersion = Global<Level>->getLevelData().getBaseGameVersion();
             auto version = baseGameVersion.asSemVersion();
-            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks", itemStack, {"AB","B"}, {
+            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks_10", itemStack, {"AB","B"}, {
                     {"minecraft:fireworks", 'A', 1, 0},
                     {"minecraft:tnt",       'B', 1, 0}
             }, {CraftingTag::CRAFTING_TABLE}, 2, nullptr, nullopt, version);
         }
         {
             ItemStack itemStack("minecraft:fireworks", 1, 0, nullptr);
+            Utils::enchant(itemStack, EnchantType::durability, MINSHORT);
             auto Fireworks = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
             Fireworks->putByte(FireworksItem::TAG_E_FLIGHT, 20);
             itemStack.getUserData()->putCompound(FireworksItem::TAG_FIREWORKS, std::move(Fireworks));
 
             auto &baseGameVersion = Global<Level>->getLevelData().getBaseGameVersion();
             auto version = baseGameVersion.asSemVersion();
-            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks", itemStack, {"ABB","BB","B"}, {
+            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks_20", itemStack, {"ABB","BB","B"}, {
                     {"minecraft:fireworks", 'A', 1, 0},
                     {"minecraft:tnt",       'B', 1, 0}
             }, {CraftingTag::CRAFTING_TABLE}, 2, nullptr, nullopt, version);
         }
         {
             ItemStack itemStack("minecraft:fireworks", 1, 0, nullptr);
+            Utils::enchant(itemStack, EnchantType::durability, MINSHORT);
             auto Fireworks = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
             Fireworks->putByte(FireworksItem::TAG_E_FLIGHT, 40);
             itemStack.getUserData()->putCompound(FireworksItem::TAG_FIREWORKS, std::move(Fireworks));
 
             auto &baseGameVersion = Global<Level>->getLevelData().getBaseGameVersion();
             auto version = baseGameVersion.asSemVersion();
-            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks", itemStack, {"ABB","BBB","BBB"}, {
+            Global<Level>->getRecipes().addShapedRecipe("minecraft:fireworks_40", itemStack, {"ABB","BBB","BBB"}, {
                     {"minecraft:fireworks", 'A', 1, 0},
                     {"minecraft:tnt",       'B', 1, 0}
             }, {CraftingTag::CRAFTING_TABLE}, 2, nullptr, nullopt, version);
