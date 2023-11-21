@@ -20,5 +20,8 @@ public:
     void init();
 };
 
+enum class ArmorSlot {
+    Helme,Chestplate,Leggings,Boots
+};
 
 #endif //NATIVEENHANCEMENTS_SUPERMOB_H

@@ -15,6 +15,8 @@
 #include "mc/ItemStackRequestSlotInfo.hpp"
 #include "mc/BlockPos.hpp"
 #include "mc/CompoundTag.hpp"
+#include "mc/NetworkItemStackDescriptor.hpp"
+#include "mc/HashedString.hpp"
 
 using namespace std;
 
@@ -23,6 +25,8 @@ class ItemStack;
 class ItemInstance;
 
 class InventorySlotPacket;
+
+class UpdateBlockPacket;
 
 class Dimension;
 
@@ -46,8 +50,8 @@ public:
     Logger logger;
     unordered_map<ActorUniqueID, unordered_map<uint32_t, ItemStack>> playerInventoryMap;
     unordered_map<ActorUniqueID, uint32_t> playerInventoryPageMap;
-    unordered_map<unsigned __int64, tuple<ContainerID, ActorUniqueID, AutomaticID<Dimension, int>, BlockPos, BlockPos>> inventoryMap;
-    unordered_map<string,uint32_t> blockRuntimeIds;
+    unordered_map<uint64_t, tuple<ContainerID, ActorUniqueID, AutomaticID<Dimension, int>, BlockPos, BlockPos>> inventoryMap;
+    unordered_map<HashedString, uint32_t> blockRuntimeIds;
 public:
     PocketInventory();
 
@@ -65,6 +69,8 @@ public:
     void sendItemStackResponseError(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId);
 
     void onContainerClosePacket(ContainerClosePacket &packet);
+
+    bool onUpdateBlockPacket(UpdateBlockPacket &packet, uint64_t id);
 
     void loadPlayerData(Player *player);
 
@@ -169,7 +175,6 @@ public:
     CompoundTag mNbt;
 };
 
-
 class ContainerOpenPacket : public Packet {
 public:
     ContainerID mContainerID;
@@ -178,18 +183,35 @@ public:
     ActorUniqueID mActorUniqueID;
 };
 
+class InventorySlotPacket : public Packet {
+public:
+    ContainerID mContainerID;
+    uint32_t mSlot;
+    NetworkItemStackDescriptor mNetworkItemStackDescriptor;
+};
 
-// UpdateSubChunkBlocksPacket::UpdateSubChunkBlocksPacket(
-// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &,
-// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &)
-// UpdateSubChunkBlocksPacket::BlocksChangedInfo::add(
-// BlockPos const &,uint,Block const &,int,ActorBlockSyncMessage const *
-// )
+class UpdateBlockPacket : public Packet {
+public:
+    BlockPos mPos;
+    uint32_t layer;
+    uint8_t flags;
+    uint32_t mRuntimeId;
 
-// UpdateSubChunkBlocks list1:[pos:(-190, 68, -214) value1:3 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,pos:(-190, 68, -213) value1:3 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,]list2:[]
-// UpdateSubChunkBlocks list1:[
-// pos:(-190, 68, -214) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,
-// pos:(-190, 68, -213) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,pos:(-190, 68, -213) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,pos:(-190, 68, -214) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,]list2:[]
+    string toString() const {
+        stringstream ss;
+        ss << "mPos:[" << mPos.toString() << "] ";
+        ss << "layer:[" << layer << "] ";
+        ss << "flags:[" << (int) flags << "] ";
+        ss << "mRuntimeId:[" << mRuntimeId << "]";
+        return ss.str();
+    }
+};
+
+class ContainerClosePacket : public Packet {
+public:
+    ContainerID mContainerID;
+};
+
 class UpdateSubChunkBlocksPacket : public Packet {
 public:
     class NetworkBlockInfo {
@@ -216,21 +238,6 @@ public:
 
     vector<NetworkBlockInfo> updates;
     vector<NetworkBlockInfo> list;
-
-    string toString() const {
-        stringstream ss;
-        ss << "updates:[";
-        for (auto &it: updates) {
-            ss << it.toString() << " ,";
-        }
-        ss << "]";
-        ss << "list:[";
-        for (auto &it: list) {
-            ss << it.toString() << " ,";
-        }
-        ss << "]";
-        return ss.str();
-    }
 };
 
 
@@ -297,5 +304,11 @@ struct ItemStackResponseInfo {
         return ss.str();
     }
 };
+
+class ItemStackResponsePacket : public Packet {
+public:
+    vector<ItemStackResponseInfo> infos;
+};
+
 
 #endif //NATIVEENHANCEMENTS_POCKETINVENTORY_H

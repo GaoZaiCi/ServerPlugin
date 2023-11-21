@@ -10,8 +10,6 @@
 #include "llapi/ScheduleAPI.h"
 #include "mc/VanillaBlockTypeIds.hpp"
 #include "mc/LoopbackPacketSender.hpp"
-#include "mc/InventorySlotPacket.hpp"
-#include "mc/ContainerClosePacket.hpp"
 #include "mc/NetworkItemStackDescriptor.hpp"
 #include "mc/Level.hpp"
 #include "mc/BlockPos.hpp"
@@ -24,7 +22,6 @@
 #include "mc/ServerPlayer.hpp"
 #include "mc/Block.hpp"
 #include "mc/HashedString.hpp"
-#include "mc/ItemStackResponsePacket.hpp"
 #include "mc/PlayerInventory.hpp"
 #include "mc/BedrockBlockNames.hpp"
 #include "mc/BlockActor.hpp"
@@ -64,7 +61,7 @@ void PocketInventory::init() {
         ItemLockHelper::setKeepOnDeath(itemStack, true);
 
         auto &baseGameVersion = Global<Level>->getLevelData().getBaseGameVersion();
-        SemVersion version = baseGameVersion.asSemVersion();
+        auto version = baseGameVersion.asSemVersion();
         Global<Level>->getRecipes().addShapedRecipe("PL::operator", itemStack, {"AAA", "ABA", "AAA"}, {
                 {VanillaItemNames::Leather, 'A', 1, 0},
                 {VanillaItemNames::Diamond, 'B', 1, 0}
@@ -99,7 +96,6 @@ void PocketInventory::openInventory(Player *player) {
         player->sendText("§c当前背包已经打开");
         return;
     }
-
 
     BlockPos posA, posB;
 
@@ -185,7 +181,7 @@ void PocketInventory::openInventory(Player *player) {
     //Level::setBlock(posA, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
     //Level::setBlock(posB, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
 
-    uint32_t chestRuntimeId = blockRuntimeIds[VanillaBlockTypeIds::Chest];
+    auto chestRuntimeId = blockRuntimeIds[VanillaBlockTypeIds::Chest];
     auto mUpdateSubChunkBlocksPacket = Utils::createPacket<UpdateSubChunkBlocksPacket>(MinecraftPacketIds::UpdateSubChunkBlocks);
     mUpdateSubChunkBlocksPacket->updates.emplace_back(posA, chestRuntimeId, 19);
     mUpdateSubChunkBlocksPacket->updates.emplace_back(posB, chestRuntimeId, 19);
@@ -253,18 +249,16 @@ void PocketInventory::sendInventorySlots(Player *player, ContainerID id, uint32_
 }
 
 void PocketInventory::sendInventorySlot(Player *player, ContainerID id, uint32_t slot, const ItemStack &item) {
-    std::shared_ptr<InventorySlotPacket> slotPacket = Utils::createPacket<InventorySlotPacket>(MinecraftPacketIds::InventorySlot);
-    *(ContainerID *) ((uintptr_t) slotPacket.get() + 48) = id;
-    *(uint32_t *) ((uintptr_t) slotPacket.get() + 52) = slot;
-    auto descriptor = (NetworkItemStackDescriptor *) ((uintptr_t) slotPacket.get() + 56);
-    Utils::loadItem(descriptor, item);
-    Utils::sendPacket(player, slotPacket);
+    auto packet = Utils::createPacket<InventorySlotPacket>(MinecraftPacketIds::InventorySlot);
+    packet->mContainerID = id;
+    packet->mSlot = slot;
+    Utils::loadItem(&packet->mNetworkItemStackDescriptor, item);
+    Utils::sendPacket(player, packet);
 }
 
 void
 PocketInventory::sendItemStackResponseSuccess(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId, ContainerEnumName fromContainer, uint32_t fromSlot, const ItemStack &fromItem, ContainerEnumName toContainer, uint32_t toSlot, const ItemStack &toItem) {
-    auto responsePacket = Utils::createPacket<ItemStackResponsePacket>(MinecraftPacketIds::ItemStackResponse);
-    auto &infoList = dAccess<vector<ItemStackResponseInfo>, 48>(responsePacket.get());
+    auto packet = Utils::createPacket<ItemStackResponsePacket>(MinecraftPacketIds::ItemStackResponse);
 
     std::vector<ItemStackResponseContainerInfo> infos;
     std::vector<ItemStackResponseSlotInfo> fromSlots;
@@ -275,32 +269,53 @@ PocketInventory::sendItemStackResponseSuccess(Player *player, TypedClientNetId<I
     toSlots.emplace_back(toSlot, toSlot, toItem.getCount(), get<TypedServerNetId<ItemStackNetIdTag, int, 0>>(toItem.getItemStackNetIdVariant().id), string(), 0);
     infos.emplace_back(toContainer, toSlots);
 
-    infoList.emplace_back(ItemStackResponseInfo::Result::OK, netId, infos);
-    Utils::sendPacket(player, responsePacket);
+    packet->infos.emplace_back(ItemStackResponseInfo::Result::OK, netId, infos);
+    Utils::sendPacket(player, packet);
 }
 
 void
 PocketInventory::sendItemStackResponseError(Player *player, TypedClientNetId<ItemStackRequestIdTag, int, 0> &netId) {
-    auto responsePacket = Utils::createPacket<ItemStackResponsePacket>(MinecraftPacketIds::ItemStackResponse);
-    auto &infoList = dAccess<vector<ItemStackResponseInfo>, 48>(responsePacket.get());
-    infoList.emplace_back(ItemStackResponseInfo::Result::ERROR, netId, std::vector<ItemStackResponseContainerInfo>());
-    Utils::sendPacket(player, responsePacket);
+    auto packet = Utils::createPacket<ItemStackResponsePacket>(MinecraftPacketIds::ItemStackResponse);
+    packet->infos.emplace_back(ItemStackResponseInfo::Result::ERROR, netId, std::vector<ItemStackResponseContainerInfo>());
+    Utils::sendPacket(player, packet);
 }
 
 void PocketInventory::onContainerClosePacket(ContainerClosePacket &packet) {
     for (auto &it: this->inventoryMap) {
-        ContainerID containerId = dAccess<ContainerID, 48>(&packet);
+        ContainerID containerId = packet.mContainerID;
         if (containerId == get<0>(it.second)) {
             auto player = Global<Level>->getPlayer(get<1>(it.second));
             AutomaticID<Dimension, int> dim = get<2>(it.second);
             BlockPos pos1 = get<3>(it.second);
             BlockPos pos2 = get<4>(it.second);
-            Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
-            Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
+            //Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
+            //Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
+
+            auto block1 = Level::getBlock(pos1, dim);
+            auto block2 = Level::getBlock(pos2, dim);
+
+            auto mUpdateSubChunkBlocksPacket = Utils::createPacket<UpdateSubChunkBlocksPacket>(MinecraftPacketIds::UpdateSubChunkBlocks);
+            mUpdateSubChunkBlocksPacket->updates.emplace_back(pos1, block1->getRuntimeId(), 3);
+            mUpdateSubChunkBlocksPacket->updates.emplace_back(pos2, block2->getRuntimeId(), 3);
+            Utils::sendPacket(player, mUpdateSubChunkBlocksPacket);
+
             savePlayerData(player);
             break;
         }
     }
+}
+
+bool PocketInventory::onUpdateBlockPacket(UpdateBlockPacket &packet, uint64_t id) {
+    auto it = this->inventoryMap.find(id);
+    if (it != this->inventoryMap.end()) {
+        BlockPos pos1 = get<3>(it->second);
+        BlockPos pos2 = get<4>(it->second);
+        if (packet.mPos == pos1 || packet.mPos == pos2) {
+            logger.warn("阻止方块更新 {}", packet.mPos.toString());
+            return true;
+        }
+    }
+    return false;
 }
 
 void PocketInventory::loadPlayerData(Player *player) {
@@ -363,7 +378,7 @@ ItemStack &PocketInventory::getInventoryItem(Player *player, uint32_t slot) {
 
 bool PocketInventory::getFakeChestPos(Player *player, BlockPos *posA, BlockPos *posB) {
     auto pos = player->getBlockPos();
-    for (int i = 3; i <= 7; ++i) {
+    for (int i = 2; i <= 7; ++i) {
         posA->x = pos.x;
         posA->y = pos.y + i;
         posA->z = pos.z;
@@ -385,7 +400,6 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
     mPocketInventory.logger.info("ItemStackRequest {}", packet.toString());
     auto it = mPocketInventory.inventoryMap.find(identifier.getHash());
     if (it != mPocketInventory.inventoryMap.end()) {
-        mPocketInventory.logger.info("当前虚拟背包玩家信息 {} {}", (int) get<0>(it->second), get<1>(it->second));
         if (packet.batch == nullptr || packet.batch->list.empty()) {
             return;
         }
@@ -395,11 +409,19 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
             AutomaticID<Dimension, int> dim = get<2>(it->second);
             BlockPos pos1 = get<3>(it->second);
             BlockPos pos2 = get<4>(it->second);
-            Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
-            Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
+            //Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
+            //Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
 
-            std::shared_ptr<ContainerClosePacket> closePacket = Utils::createPacket<ContainerClosePacket>(MinecraftPacketIds::ContainerClose);
-            *(ContainerID *) ((uintptr_t) closePacket.get() + 48) = get<0>(it->second);
+            auto block1 = Level::getBlock(pos1, dim);
+            auto block2 = Level::getBlock(pos2, dim);
+
+            auto mUpdateSubChunkBlocksPacket = Utils::createPacket<UpdateSubChunkBlocksPacket>(MinecraftPacketIds::UpdateSubChunkBlocks);
+            mUpdateSubChunkBlocksPacket->updates.emplace_back(pos1, block1->getRuntimeId(), 3);
+            mUpdateSubChunkBlocksPacket->updates.emplace_back(pos2, block2->getRuntimeId(), 3);
+            Utils::sendPacket(player, mUpdateSubChunkBlocksPacket);
+
+            auto closePacket = Utils::createPacket<ContainerClosePacket>(MinecraftPacketIds::ContainerClose);
+            closePacket->mContainerID = get<0>(it->second);
 
             mPocketInventory.inventoryMap.erase(it);
             mPocketInventory.savePlayerData(player);

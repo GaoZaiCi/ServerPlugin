@@ -25,7 +25,7 @@ SuperMob::SuperMob() : logger(__FILE__) {
 }
 
 void SuperMob::init() {
-    MobSpawnedEvent::subscribe_ref([this](auto &event) {
+    MobSpawnedEvent::subscribe_ref([](auto &event) {
         Mob *mob = event.mMob;
         BlockSource &source = mob->getRegion();
         ActorDefinitionIdentifier identifier = mob->getActorIdentifier();
@@ -35,7 +35,7 @@ void SuperMob::init() {
                 mob->addTag("SuperMob");
                 mob->setNameTag("闪电苦力怕");
                 mob->addDefinitionGroup("minecraft:charged_creeper");
-                Level &level = source.getLevel();
+                auto &level = source.getLevel();
                 Player *player = level.getPlayer("VanessaSpy");
                 if (player) {
                     //设置生物攻击目标
@@ -92,10 +92,10 @@ void SuperMob::init() {
                 } else {
                     mob->setNameTag("Dinnerbone");
                     if (mob->getRandom().nextInt(0, 100) > 70) {
-                        mob->setArmor((ArmorSlot) 0, ItemStack(VanillaItemNames::DiamondHelmet, 1, 0, nullptr));
-                        mob->setArmor((ArmorSlot) 1, ItemStack(VanillaItemNames::DiamondChestplate, 1, 0, nullptr));
-                        mob->setArmor((ArmorSlot) 2, ItemStack(VanillaItemNames::DiamondLeggings, 1, 0, nullptr));
-                        mob->setArmor((ArmorSlot) 3, ItemStack(VanillaItemNames::DiamondBoots, 1, 0, nullptr));
+                        mob->setArmor(ArmorSlot::Helme, ItemStack(VanillaItemNames::DiamondHelmet, 1, 0, nullptr));
+                        mob->setArmor(ArmorSlot::Chestplate, ItemStack(VanillaItemNames::DiamondChestplate, 1, 0, nullptr));
+                        mob->setArmor(ArmorSlot::Leggings, ItemStack(VanillaItemNames::DiamondLeggings, 1, 0, nullptr));
+                        mob->setArmor(ArmorSlot::Boots, ItemStack(VanillaItemNames::DiamondBoots, 1, 0, nullptr));
                         if (mob->getRandom().nextBoolean()) {
                             auto const &instance = mob->getAttribute(SharedAttributes::HEALTH);
                             auto &p = (AttributeInstance &) instance;
@@ -111,30 +111,26 @@ void SuperMob::init() {
                 ItemStack itemStack("minecraft:bow", 1, 0, nullptr);
                 unique_ptr<ListTag> listTag = ListTag::create();
                 {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
                     unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->putShort("id", EnchantType::durability);
                     compoundTag->putShort("lvl", MINSHORT);
                     listTag->add(std::move(compoundTag));
                 }
                 {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
                     unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->putShort("id", EnchantType::arrowInfinite);
                     compoundTag->putShort("lvl", MINSHORT);
                     listTag->add(std::move(compoundTag));
                 }
                 {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
                     unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->putShort("id", EnchantType::damage_undead);
                     compoundTag->putShort("lvl", MINSHORT);
                     listTag->add(std::move(compoundTag));
                 }
-                if (itemStack.getUserData()) {
+                if (itemStack.hasUserData()) {
                     itemStack.getUserData()->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
                 } else {
-                    unique_ptr<Tag> t = Tag::newTag(Tag::Type::Compound);
                     unique_ptr<CompoundTag> compoundTag = CompoundTag::create();
                     compoundTag->put(ItemStack::TAG_ENCHANTS, std::move(listTag));
                     itemStack.setUserData(std::move(compoundTag));
