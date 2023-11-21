@@ -14,6 +14,7 @@
 #include "mc/ItemStackNetIdVariant.hpp"
 #include "mc/ItemStackRequestSlotInfo.hpp"
 #include "mc/BlockPos.hpp"
+#include "mc/CompoundTag.hpp"
 
 using namespace std;
 
@@ -157,6 +158,76 @@ public:
     inline string toString() const {
         stringstream ss;
         ss << "batch:[" << batch->toString() << "]";
+        return ss.str();
+    }
+};
+
+class BlockActorDataPacket : public Packet {
+public:
+    BlockPos mPos;
+    CompoundTag mNbt;
+};
+
+
+class ContainerOpenPacket : public Packet {
+public:
+    ContainerID mContainerID;
+    ContainerType mContainerType;
+    BlockPos mPos;
+    ActorUniqueID mActorUniqueID;
+};
+
+
+// UpdateSubChunkBlocksPacket::UpdateSubChunkBlocksPacket(
+// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &,
+// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &)
+// UpdateSubChunkBlocksPacket::BlocksChangedInfo::add(
+// BlockPos const &,uint,Block const &,int,ActorBlockSyncMessage const *
+// )
+
+// UpdateSubChunkBlocks list1:[pos:(-190, 68, -214) value1:3 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,pos:(-190, 68, -213) value1:3 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,]list2:[]
+// UpdateSubChunkBlocks list1:[
+// pos:(-190, 68, -214) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,
+// pos:(-190, 68, -213) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,pos:(-190, 68, -213) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,pos:(-190, 68, -214) value1:19 mRuntimeId:3045431126 mActorBlockSyncMessage:-1 value2:0 ,]list2:[]
+class UpdateSubChunkBlocksPacket : public Packet {
+public:
+    class NetworkBlockInfo {
+    public:
+        BlockPos mPos;
+        uint32_t mRuntimeId;
+        uint8_t flags;
+        ActorUniqueID syncedUpdateActorUniqueId;
+        uint32_t syncedUpdateType;
+
+        NetworkBlockInfo(const BlockPos &mPos, uint32_t mRuntimeId, uint8_t flags)
+                : mPos(mPos), mRuntimeId(mRuntimeId), flags(flags), syncedUpdateActorUniqueId(ActorUniqueID::INVALID_ID), syncedUpdateType(0) {}
+
+        string toString() const {
+            stringstream ss;
+            ss << "pos:" << mPos.toString() << " ";
+            ss << "flags:" << (int) flags << " ";
+            ss << "mRuntimeId:" << mRuntimeId << " ";
+            ss << "syncedUpdateActorUniqueId:" << syncedUpdateActorUniqueId << " ";
+            ss << "syncedUpdateType:" << syncedUpdateType;
+            return ss.str();
+        }
+    };
+
+    vector<NetworkBlockInfo> updates;
+    vector<NetworkBlockInfo> list;
+
+    string toString() const {
+        stringstream ss;
+        ss << "updates:[";
+        for (auto &it: updates) {
+            ss << it.toString() << " ,";
+        }
+        ss << "]";
+        ss << "list:[";
+        for (auto &it: list) {
+            ss << it.toString() << " ,";
+        }
+        ss << "]";
         return ss.str();
     }
 };

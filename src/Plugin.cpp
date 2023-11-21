@@ -59,7 +59,6 @@
 #include "mc/LevelSeed64.hpp"
 #include "mc/PlayerListPacket.hpp"
 #include "mc/UpdateAbilitiesPacket.hpp"
-#include "mc/ContainerOpenPacket.hpp"
 #include "mc/ContainerClosePacket.hpp"
 #include "mc/ItemStackResponsePacket.hpp"
 #include "mc/InventorySlotPacket.hpp"
@@ -293,21 +292,29 @@ TInstanceHook(void, "?_becomeDirt@FarmBlock@@AEBAXAEAVBlockSource@@AEBVBlockPos@
 }
 
 
-// UpdateSubChunkBlocksPacket::UpdateSubChunkBlocksPacket(
-// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &,
-// std::vector<UpdateSubChunkBlocksPacket::NetworkBlockInfo> const &)
-class UpdateSubChunkBlocksPacket : public Packet {
-public:
+unordered_set<MinecraftPacketIds> packets = {
+        MinecraftPacketIds::MoveActorDelta,
+        MinecraftPacketIds::SetActorData,
+        MinecraftPacketIds::SetActorMotion,
+        MinecraftPacketIds::LevelChunk,
+        MinecraftPacketIds::SetDisplayObjective,
+        MinecraftPacketIds::SetScore,
+        MinecraftPacketIds::LevelSoundEvent,
+        MinecraftPacketIds::ActorEvent,
 };
 
 
 TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket@@W4SubClientId@@@Z", NetworkSystem, NetworkIdentifier const &identifier, Packet const &packet, SubClientId id) {
-    /*if (packet.getId() != MinecraftPacketIds::MoveActorDelta && packet.getId() != MinecraftPacketIds::SetActorData && packet.getId() != MinecraftPacketIds::SetActorMotion) {
+    if (!packets.count(packet.getId())) {
         logger.info("Sending {}", packet.getName());
-    }*/
+    }
     if (packet.getId() == MinecraftPacketIds::ContainerClose) {
         auto &ptr = (ContainerClosePacket &) packet;
         mPocketInventory.onContainerClosePacket(ptr);
+    }
+    if (packet.getId() == MinecraftPacketIds::UpdateSubChunkBlocks) {
+        auto &ptr = (UpdateSubChunkBlocksPacket &) packet;
+        logger.info("UpdateSubChunkBlocks {}",ptr.toString());
     }
     /*if (packet.getId() == MinecraftPacketIds::PlayerList) {
         auto ptr = (PlayerListPacket *) &packet;
@@ -362,15 +369,15 @@ TInstanceHook(void, "?send@NetworkSystem@@QEAAXAEBVNetworkIdentifier@@AEBVPacket
         BlockPalette &blockPalette = Global<ServerLevel>->getBlockPalette();
         ItemStack itemStack = ItemStack::fromDescriptor(item, blockPalette, true);
         logger.info("InventorySlot {} {} {}", (int) containerId, slot, itemStack.toDebugString());
-    }
+    }*/
     if (packet.getId() == MinecraftPacketIds::UpdateBlock) {
         auto ptr = (UpdateBlockPacket *) &packet;
         BlockPos pos = dAccess<BlockPos, 48>(ptr);
-        uint32_t id1 = dAccess<uint32_t, 60>(ptr);
-        uint8_t data = dAccess<uint8_t, 64>(ptr);
+        uint32_t layer = dAccess<uint32_t, 60>(ptr);
+        uint8_t flags = dAccess<uint8_t, 64>(ptr);
         uint32_t mRuntimeId = dAccess<uint32_t, 68>(ptr);
-        logger.info("UpdateBlock {} {} {} {}", pos.toString(), id1, (int) data, mRuntimeId);
-    }*/
+        logger.info("UpdateBlock {} {} {} {}", pos.toString(), layer, (int) flags, mRuntimeId);
+    }
     return original(this, identifier, packet, id);
 }
 

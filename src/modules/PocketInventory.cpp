@@ -10,7 +10,6 @@
 #include "llapi/ScheduleAPI.h"
 #include "mc/VanillaBlockTypeIds.hpp"
 #include "mc/LoopbackPacketSender.hpp"
-#include "mc/ContainerOpenPacket.hpp"
 #include "mc/InventorySlotPacket.hpp"
 #include "mc/ContainerClosePacket.hpp"
 #include "mc/NetworkItemStackDescriptor.hpp"
@@ -43,6 +42,7 @@
 #include "mc/MovingBlockActor.hpp"
 #include "mc/Dimension.hpp"
 #include "mc/BaseGameVersion.hpp"
+#include "mc/StaticVanillaBlocks.hpp"
 
 using namespace Event;
 
@@ -99,6 +99,7 @@ void PocketInventory::openInventory(Player *player) {
         player->sendText("§c当前背包已经打开");
         return;
     }
+
 
     BlockPos posA, posB;
 
@@ -178,28 +179,50 @@ void PocketInventory::openInventory(Player *player) {
         }
     }*/
 
+    //player->sendUpdateBlockPacket(posA,*StaticVanillaBlocks::mChest);
+    //player->sendUpdateBlockPacket(posB,*StaticVanillaBlocks::mChest);
 
     Level::setBlock(posA, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
     Level::setBlock(posB, player->getDimensionId(), VanillaBlockTypeIds::Chest, 4);
+    {
+        auto mUpdateSubChunkBlocksPacket = Utils::createPacket<UpdateSubChunkBlocksPacket>(MinecraftPacketIds::UpdateSubChunkBlocks);
+        mUpdateSubChunkBlocksPacket->updates.emplace_back(posA,StaticVanillaBlocks::mChest->getRuntimeId(),19);
+        mUpdateSubChunkBlocksPacket->updates.emplace_back(posB,StaticVanillaBlocks::mChest->getRuntimeId(),19);
+        Utils::sendPacket(player,mUpdateSubChunkBlocksPacket);
+    }
 
-    BlockActor *chestBlockActor = Level::getBlockEntity(posA, player->getDimensionId());
+    /*BlockActor *chestBlockActor = Level::getBlockEntity(posA, player->getDimensionId());
     chestBlockActor->setCustomName("§b" + player->getName() + "§e的移动背包");
-    chestBlockActor->refreshData();
+    chestBlockActor->refreshData();*/
+
+    auto nbt = Utils::makeTag<CompoundTag>(Tag::Type::Compound);
+    nbt->putInt("x", posA.x);
+    nbt->putInt("y", posA.y);
+    nbt->putInt("z", posA.z);
+    nbt->putInt("pairx", posB.x);
+    nbt->putInt("pairz", posB.z);
+    nbt->putByte("pairlead", 1);
+    nbt->putString("CustomName", "§b" + player->getName() + "§e的移动背包");
+
+    auto mBlockActorDataPacket = Utils::createPacket<BlockActorDataPacket>(MinecraftPacketIds::BlockActorData);
+    mBlockActorDataPacket->mPos = posA;
+    mBlockActorDataPacket->mNbt.append(*nbt);
+    Utils::sendPacket(player, mBlockActorDataPacket);
 
     ContainerID nextContainerID = serverPlayer->_nextContainerCounter();
 
-    std::shared_ptr<ContainerOpenPacket> packet = Utils::createPacket<ContainerOpenPacket>(MinecraftPacketIds::ContainerOpen);
-    *(ContainerID *) ((uintptr_t) packet.get() + 48) = nextContainerID;
-    *(ContainerType *) ((uintptr_t) packet.get() + 49) = ContainerType::CONTAINER;
-    *(BlockPos *) ((uintptr_t) packet.get() + 52) = posA;
-    *(ActorUniqueID *) ((uintptr_t) packet.get() + 64) = ActorUniqueID::INVALID_ID;
+    auto mContainerOpenPacket = Utils::createPacket<ContainerOpenPacket>(MinecraftPacketIds::ContainerOpen);
+    mContainerOpenPacket->mContainerID = nextContainerID;
+    mContainerOpenPacket->mContainerType = ContainerType::CONTAINER;
+    mContainerOpenPacket->mPos = posA;
+    mContainerOpenPacket->mActorUniqueID = ActorUniqueID::INVALID_ID;
 
     this->inventoryMap[player->getNetworkIdentifier()->getHash()] = {nextContainerID, player->getActorUniqueId(), player->getDimensionId(), posA, posB};
 
-    Schedule::delay([this, player, nextContainerID, packet] {
-        Utils::sendPacket(player, packet);
+    Schedule::delay([this, player, mContainerOpenPacket] {
+        Utils::sendPacket(player, mContainerOpenPacket);
         uint32_t page = mPocketInventory.playerInventoryPageMap[player->getActorUniqueId()];
-        sendInventorySlots(player, nextContainerID, page * InventoryMaxSize, (page * InventoryMaxSize) + InventoryMaxSize);
+        sendInventorySlots(player, mContainerOpenPacket->mContainerID, page * InventoryMaxSize, (page * InventoryMaxSize) + InventoryMaxSize);
     }, 3);
 }
 
@@ -801,6 +824,10 @@ TInstanceHook(void, "?handle@ServerNetworkHandler@@UEAAXAEBVNetworkIdentifier@@A
         BlockPos pos2 = get<4>(it->second);
         Level::setBlock(pos1, dim, BedrockBlockNames::Air, 0);
         Level::setBlock(pos2, dim, BedrockBlockNames::Air, 0);
+        //auto block1 = Level::getBlock(pos1,dim);
+        //auto block2 = Level::getBlock(pos2,dim);
+        //player->sendUpdateBlockPacket(pos1,block1->getRuntimeId());
+        //player->sendUpdateBlockPacket(pos1,block2->getRuntimeId());
         mPocketInventory.inventoryMap.erase(it);
         mPocketInventory.savePlayerData(player);
     }
