@@ -6,8 +6,8 @@
 
 #include "PocketInventory.h"
 
-#include "llapi/EventAPI.h"
-#include "llapi/ScheduleAPI.h"
+#include "EventAPI.h"
+#include "ScheduleAPI.h"
 #include "mc/VanillaBlockTypeIds.hpp"
 #include "mc/LoopbackPacketSender.hpp"
 #include "mc/NetworkItemStackDescriptor.hpp"

@@ -70,6 +70,7 @@
 #include "modules/BloodMoon.h"
 #include "modules/SuperMob.h"
 #include "modules/FastLeafDecay.h"
+#include "modules/MoreFireworks.h"
 
 using namespace std;
 using namespace Event;
@@ -103,6 +104,7 @@ BloodMoon mBloodMoon;
 SuperMob mSuperMob;
 PocketInventory mPocketInventory;
 FastLeafDecay mFastLeafDecay;
+MoreFireworks mMoreFireworks;
 
 void PluginInit() {
     HMODULE handle = GetModuleHandle(nullptr);
@@ -114,6 +116,7 @@ void PluginInit() {
     mSuperMob.init();
     mPocketInventory.init();
     mFastLeafDecay.init();
+    mMoreFireworks.init();
 
     PlayerJoinEvent::subscribe_ref([](auto &event) {
         event.mPlayer->sendText("§b欢迎玩家§e" + event.mPlayer->getName() + "§b进入游戏！");
