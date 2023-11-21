@@ -47,6 +47,7 @@ public:
     unordered_map<ActorUniqueID, unordered_map<uint32_t, ItemStack>> playerInventoryMap;
     unordered_map<ActorUniqueID, uint32_t> playerInventoryPageMap;
     unordered_map<unsigned __int64, tuple<ContainerID, ActorUniqueID, AutomaticID<Dimension, int>, BlockPos, BlockPos>> inventoryMap;
+    unordered_map<string,uint32_t> blockRuntimeIds;
 public:
     PocketInventory();
 
